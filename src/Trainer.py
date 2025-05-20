@@ -10,15 +10,16 @@ from torch.optim import Adam
 from torch.nn import L1Loss, CrossEntropyLoss
 from torch.amp import autocast
 
-from src.model.our_model import Base_Model
+from utils.bias_metric import *
 
-class MB_SLMTrainer:
+class Trainer:
     def __init__(self, 
-                 model, 
-                 slm,
+                 clip, 
+                 model,
                  train_loader,
                  val_loader,
-                 optimizer,
+                 c_optimizer,
+                 r_optimizer,
                  device,
                  args,
                  epochs=100,
@@ -30,13 +31,14 @@ class MB_SLMTrainer:
                  ):
         self.args = args
 
+        self.clip = clip
         self.model = model 
-        self.slm = slm
 
         self.train_loader = train_loader
         self.val_loader = val_loader
 
-        self.optimizer = optimizer
+        self.c_optimizer = c_optimizer
+        self.r_optimizer = r_optimizer
         self.device = device
 
         self.epochs = epochs

@@ -1,6 +1,6 @@
 import argparse
 
-def get_args():
+def get_arguments():
     parser = argparse.ArgumentParser()
 
     # Dataset config
@@ -17,7 +17,7 @@ def get_args():
     parser.add_argument('--expand_max_ratio', type=float, default=4)
 
     # Model config
-    parser.add_argument('--model_name', type=str, default='Final_MB_SLM')
+    parser.add_argument('--model_name', type=str, default='N-TIDE')
     parser.add_argument('--activation', type=str, default='relu')
     parser.add_argument('--normalize', type=str, default='bn')
     parser.add_argument('--return_features', type=bool, default=True)
@@ -31,7 +31,7 @@ def get_args():
     parser.add_argument('--r1_gamma', type=float, default=1)
     parser.add_argument('--r1_lambda', type=float, default=1e-4)
     parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--lr', type=float, default=1e-3)
+    parser.add_argument('--learning_rate', type=float, default=1e-3)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
     parser.add_argument('--optimizer', type=str, default='adam')
     parser.add_argument('--scheduler', type=str, default='cosine')
