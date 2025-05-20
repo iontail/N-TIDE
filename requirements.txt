@@ -53,5 +53,5 @@ urllib3==2.4.0
 wandb==0.19.10
 wheel==0.45.1
 
-# # OpenAI CLIP (GitHub에서 설치)
+# # OpenAI CLIP
 git+https://github.com/openai/CLIP.git

@@ -75,7 +75,7 @@ class Base_Model(nn.Module):
 
 if __name__ == "__main__":
     from argparse import Namespace
-    args = Namespace(clip_model_type="RN50", clip_clf_dim = 256, num_classes = 3, return_features = True)
+    args = Namespace(clip_backbone="RN50", clip_clf_dim = 256, num_classes = 3, return_features = True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
