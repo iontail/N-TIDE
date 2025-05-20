@@ -2,22 +2,7 @@ import os
 import glob
 from PIL import Image
 import torch
-import torchvision.transforms as transforms
 from sklearn.model_selection import train_test_split
-
-# Define transforms directly here or pass them during instantiation
-augment_train = transforms.Compose([
-    transforms.RandomResizedCrop(224),
-    transforms.RandomHorizontalFlip(),
-    transforms.ToTensor(),
-    ])
-
-augment_test = transforms.Compose([
-    transforms.Resize(256),
-    transforms.CenterCrop(224),
-    transforms.ToTensor(),
-])
-
 
 class UTKFace_Dataset(torch.utils.data.Dataset):
     """
@@ -25,7 +10,7 @@ class UTKFace_Dataset(torch.utils.data.Dataset):
     Assumes filenames are in the format: [age]_[gender]_[race]_[date&time].jpg
     Uses 'age' as the label.
     """
-    def __init__(self, root_dir, train_mode=True, test_mode =False, transform=None, test_split_ratio=0.2, random_state=42):
+    def __init__(self, root_dir, train_mode=True, test_mode=False, transform=None, test_split_ratio=0.2, random_state=42):
         super(UTKFace_Dataset, self).__init__()
         self.root_dir = root_dir
         self.transform = transform

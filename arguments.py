@@ -17,9 +17,8 @@ def get_arguments():
     parser.add_argument('--expand_max_ratio', type=float, default=4)
 
     # Model config
-    parser.add_argument('--model_name', type=str, default='N-TIDE')
-    parser.add_argument('--activation', type=str, default='relu')
-    parser.add_argument('--normalize', type=str, default='bn')
+    parser.add_argument('--clip_backbone', type=str, default='RN50')
+    parser.add_argument('--clip_clf_dim', type=int, default=512)
     parser.add_argument('--return_features', type=bool, default=True)
 
     # Train config
@@ -33,9 +32,9 @@ def get_arguments():
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--learning_rate', type=float, default=1e-3)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
-    parser.add_argument('--optimizer', type=str, default='adam')
-    parser.add_argument('--scheduler', type=str, default='cosine')
-    parser.add_argument('--is_train', type=bool, default=False)
+    parser.add_argument('--optimiler', type=str, default='cosine')
+    parser.add_argument('--is_trazer', type=str, default='adam')
+    parser.add_argument('--scheduin', type=bool, default=False)
 
     # Loss Weights
     parser.add_argument('--weight_equal_r', type=float, default=0.01)

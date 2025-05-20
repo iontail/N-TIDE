@@ -1,6 +1,7 @@
 import os
+import torchvision.transforms as transforms
 from torch.utils.data.dataloader import default_collate 
-from src.datasets.dataset_UTKFace import UTKFace_Dataset, augment_train, augment_test
+from src.datasets.UTKFace import UTKFace_Dataset
 
 def get_dataset(args):
     """
@@ -18,12 +19,25 @@ def get_dataset(args):
 
     if not hasattr(args, 'utkface_path') or not args.utkface_path:
         raise ValueError("There is no argument about \'utkface_path\'.")
+
+    # Define transforms directly here or pass them during instantiation
+    train_transforms = transforms.Compose([
+        transforms.RandomResizedCrop(224),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        ])
+
+    test_transforms = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+    ])
     
     if args.is_train:
         train_path = os.path.join(args.utkface_path, 'train')
-        train_dataset = UTKFace_Dataset(root_dir = train_path, train_mode = True, transform = augment_train,
+        train_dataset = UTKFace_Dataset(root_dir = train_path, train_mode = True, transform = train_transforms,
                                         test_split_ratio=test_split_ratio, random_state = random_state)
-        valid_dataset = UTKFace_Dataset(root_dir = train_path, train_mode = False, transform = augment_test,
+        valid_dataset = UTKFace_Dataset(root_dir = train_path, train_mode = False, transform = test_transforms,
                                         test_split_ratio = test_split_ratio, random_state = random_state)
         # 기본 default_collate 함수 사용
         data_collator = default_collate
@@ -31,7 +45,7 @@ def get_dataset(args):
         return train_dataset, valid_dataset, data_collator
     else:
         test_path = os.path.join(args.utkface_path, 'test')
-        test_dataset = UTKFace_Dataset(root_dir=test_path, train_mode=False, transform=augment_test, test_split_ratio=test_split_ratio, random_state=random_state)
+        test_dataset = UTKFace_Dataset(root_dir=test_path, train_mode=False, transform=test_transforms, test_split_ratio=test_split_ratio, random_state=random_state)
         data_collator = default_collate
 
         return test_dataset, None, data_collator
