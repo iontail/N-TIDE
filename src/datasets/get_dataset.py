@@ -1,24 +1,30 @@
-import os
 import torchvision.transforms as transforms
 from torch.utils.data.dataloader import default_collate 
+from datasets import load_dataset
 from src.datasets.UTKFace import UTKFace_Dataset
 
 def get_dataset(args):
     """
-    return UTKFace dataset and loader
-
     Args:
-        args: 
-              - is_train (bool): 학습 또는 테스트 데이터 로드 여부 플래그.
-              - utkface_path (str): UTKFace 데이터셋의 루트 디렉토리 경로.
-              - test_split_ratio (float, optional):  기본값 0.2.
-              - random_state (int, optional)
-    """
-    test_split_ratio = getattr(args, 'test_split_ratio', 0.2)
-    random_state = getattr(args, 'random_state', 42)
+        dataset_path (str): Hugging Face UTKFace-Cropped dataset
+        dataset_split_ratio (list): [train, valid, test]
+        random_state (int)
 
-    if not hasattr(args, 'utkface_path') or not args.utkface_path:
-        raise ValueError("There is no argument about \'utkface_path\'.")
+    Returns:
+        train_dataset, valid_dataset, test_dataset
+    """
+    dataset = load_dataset(args.dataset_path, split='train')
+
+    assert sum(args.dataset_split_ratio) == 1.0, "Split ratios must sum to 1.0"
+    train_ratio, valid_ratio, test_ratio = args.dataset_split_ratio
+    total_size = len(dataset)
+    train_end = int(train_ratio * total_size)
+    valid_end = train_end + int(valid_ratio * total_size)
+
+    dataset_sh = dataset.shuffle(seed=args.seed)
+    train_data = dataset_sh.select(range(0, train_end))
+    valid_data = dataset_sh.select(range(train_end, valid_end))
+    test_data  = dataset_sh.select(range(valid_end, total_size))
 
     # Define transforms directly here or pass them during instantiation
     train_transforms = transforms.Compose([
@@ -34,18 +40,12 @@ def get_dataset(args):
     ])
     
     if args.is_train:
-        train_path = os.path.join(args.utkface_path, 'train')
-        train_dataset = UTKFace_Dataset(root_dir = train_path, train_mode = True, transform = train_transforms,
-                                        test_split_ratio=test_split_ratio, random_state = random_state)
-        valid_dataset = UTKFace_Dataset(root_dir = train_path, train_mode = False, transform = test_transforms,
-                                        test_split_ratio = test_split_ratio, random_state = random_state)
-        # 기본 default_collate 함수 사용
+        train_dataset = UTKFace_Dataset(train_data, transform=train_transforms)
+        valid_dataset = UTKFace_Dataset(valid_data, transform=test_transforms)
         data_collator = default_collate
-
         return train_dataset, valid_dataset, data_collator
     else:
-        test_path = os.path.join(args.utkface_path, 'test')
-        test_dataset = UTKFace_Dataset(root_dir=test_path, train_mode=False, transform=test_transforms, test_split_ratio=test_split_ratio, random_state=random_state)
+        test_dataset = UTKFace_Dataset(test_data, transform=test_transforms)
         data_collator = default_collate
-
         return test_dataset, None, data_collator
+

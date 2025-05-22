@@ -4,10 +4,7 @@ import wandb
 from tqdm import tqdm
 
 import torch
-import torch.distributed as dist
-from torch.utils.data import DataLoader
-from torch.optim import Adam
-from torch.nn import L1Loss, CrossEntropyLoss
+import torch.nn as nn 
 from torch.amp import autocast
 
 from utils.bias_metric import *
@@ -22,11 +19,11 @@ class Trainer:
                  r_optimizer,
                  device,
                  args,
-                 epochs=100,
+                 num_epochs=100,
                  eval_steps=500,
                  checkpoint_dir="./ckpt",
                  use_wandb=True,
-                 project_name="MB_SLM",
+                 project_name="N-TIDE",
                  run_name=None
                  ):
         self.args = args
@@ -41,15 +38,15 @@ class Trainer:
         self.r_optimizer = r_optimizer
         self.device = device
 
-        self.epochs = epochs
+        self.num_epochs = num_epochs
         self.eval_steps = eval_steps
 
         self.checkpoint_dir = checkpoint_dir
         os.makedirs(checkpoint_dir, exist_ok=True)
         self.use_wandb = use_wandb
 
-        self.ce_loss = CrossEntropyLoss()
-        self.l1_loss = L1Loss()
+        self.ce_loss = nn.CrossEntropyLoss()
+        self.l1_loss = nn.L1Loss()
 
     def compute_losses(self, batch):
         img, labels = batch
@@ -146,7 +143,7 @@ class Trainer:
         torch.save(checkpoint, os.path.join(self.checkpoint_dir, f"{self.args.model_name}.pt"))
 
     def train(self):
-        for epoch in range(self.epochs):
+        for epoch in range(self.num_epochs):
             start_time = time.time()
             avg_loss = self.train_epoch(epoch)
             if self.use_wandb:
