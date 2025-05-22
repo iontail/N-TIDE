@@ -1,7 +1,7 @@
 import torchvision.transforms as transforms
 from torch.utils.data.dataloader import default_collate 
 from datasets import load_dataset
-from src.datasets.UTKFace import UTKFace_Dataset
+from src.dataset.UTKFace import UTKFace_Dataset
 
 def get_dataset(args):
     """

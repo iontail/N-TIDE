@@ -28,3 +28,19 @@ class UTKFace_Dataset(Dataset):
 
     def __len__(self):
         return len(self.dataset)
+
+if __name__ == "__main__":
+    from argparse import Namespace
+    from datasets import load_dataset
+    import matplotlib.pyplot as plt 
+
+    args = Namespace(dataset_path="py97/UTKFace-Cropped")
+
+    dataset = load_dataset(args.dataset_path, split='train')
+    dataset = UTKFace_Dataset(dataset)
+
+    image, label = dataset[0]
+    plt.imshow(image)
+    plt.title(f"Age: {label[0]}, Gender: {label[1]}, Race: {label[2]}")
+    plt.show()
+

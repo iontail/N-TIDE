@@ -9,9 +9,9 @@ import wandb
 import time
 
 from arguments import get_arguments
-from src.datasets.get_dataset import get_dataset
+from src.dataset.get_dataset import get_dataset
 from src.model.get_model import get_model
-from src.trainer import Trainer 
+from src.trainer import Trainer
 
 def set_seed(seed):
     random.seed(seed)
@@ -21,7 +21,7 @@ def set_seed(seed):
 
 def main(args): 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Current Device: {device}")
+    print(f"Device: {device}")
 
     set_seed(args.seed)
 
@@ -47,7 +47,7 @@ def main(args):
         persistent_workers=True
     )
 
-    clip, model = get_model(args)
+    clip, model = get_model(args, device)
     clip, model = clip.to(device), model.to(device)
 
     if args.bf16:
@@ -59,14 +59,15 @@ def main(args):
         weight_decay=args.weight_decay
     )
 
-    r_optimizer = torch.optim.Adam(
+    m_optimizer = torch.optim.Adam(
         model.parameters(),
         lr=args.learning_rate,
         weight_decay=args.weight_decay
     )
 
-    run_name = f"N-TIDE_run_{time.strftime('%Y%m%d_%H%M%S')}"
-    wandb.init(project='N-TIDE', name=run_name, config=args) 
+    if args.use_wandb:
+        run_name = f"N-TIDE_run_{time.strftime('%Y%m%d_%H%M%S')}"
+        wandb.init(project='N-TIDE', name=run_name, config=args) 
 
     trainer = Trainer(
         clip=clip,
@@ -74,15 +75,9 @@ def main(args):
         train_loader=train_loader,
         val_loader=val_loader,
         c_optimizer=c_optimizer,
-        r_optimizer=r_optimizer,
+        m_optimizer=m_optimizer,
         device=device,
         args=args,
-        epochs=args.epochs,
-        eval_steps=200, # Or pull from cfg if defined
-        checkpoint_dir="./ckpt", 
-        use_wandb=True,
-        project_name="N-TIDE", # Match wandb.init
-        run_name=run_name      # Match wandb.init
     )
 
     trainer.train()

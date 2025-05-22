@@ -8,7 +8,7 @@ import torch
 from tqdm import tqdm
 
 from arguments import get_arguments
-from src.datasets.get_dataset import get_dataset
+from src.dataset.get_dataset import get_dataset
 from src.model.get_model import get_model
 
 def set_seed(seed):
@@ -19,7 +19,7 @@ def set_seed(seed):
 
 def main(args): 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Current Device: {device}")
+    print(f"Device: {device}")
 
     set_seed(args.seed)
 

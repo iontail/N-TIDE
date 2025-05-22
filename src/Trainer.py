@@ -5,9 +5,10 @@ from tqdm import tqdm
 
 import torch
 import torch.nn as nn 
+import torch.nn.functional as F
 from torch.amp import autocast
 
-from utils.bias_metric import *
+from src.utils.bias_metric import *
 
 class Trainer:
     def __init__(self, 
@@ -16,15 +17,9 @@ class Trainer:
                  train_loader,
                  val_loader,
                  c_optimizer,
-                 r_optimizer,
+                 m_optimizer,
                  device,
                  args,
-                 num_epochs=100,
-                 eval_steps=500,
-                 checkpoint_dir="./ckpt",
-                 use_wandb=True,
-                 project_name="N-TIDE",
-                 run_name=None
                  ):
         self.args = args
 
@@ -35,123 +30,120 @@ class Trainer:
         self.val_loader = val_loader
 
         self.c_optimizer = c_optimizer
-        self.r_optimizer = r_optimizer
+        self.m_optimizer = m_optimizer
         self.device = device
 
-        self.num_epochs = num_epochs
-        self.eval_steps = eval_steps
+        self.num_epochs = self.args.num_epochs
 
-        self.checkpoint_dir = checkpoint_dir
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        self.use_wandb = use_wandb
-
-        self.ce_loss = nn.CrossEntropyLoss()
-        self.l1_loss = nn.L1Loss()
+        self.checkpoint_dir = self.args.checkpoint_dir
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
 
     def compute_losses(self, batch):
-        img, labels = batch
-        img = img.to(self.device)
-        labels = labels.to(self.device)
+        images, labels = batch
+        images, labels = images.to(self.device), labels.to(self.device)
+        gender_labels, race_labels = labels[:, 1], labels[:, 2] # labels: [Batch_size, 3] ->  [Age, Gender, Race]
 
-        # 설정 파일(ags)에서 지정한 인덱스로 주요 타겟 레이블 선택
-        target = labels[:, self.args.dataset_target_label_idx]
         with autocast('cuda', dtype=torch.bfloat16 if self.args.bf16 else torch.float32):
-            logits, features = self.model(img)
+            # Forward pass
+            gender_logits, race_logits = self.clip(images)
 
-            # SLM 통과하는 부분 추가해줘야 할듯
-            ce_loss = self.ce_loss(logits, target)
+            # Classification losses
+            gender_loss = F.cross_entropy(gender_logits, gender_labels)
+            race_loss = F.cross_entropy(race_logits, race_labels)
 
-            r1_loss = torch.tensor(0.0).to(img.device) # R1 loss는 현재 사용하지 않음
-            model_loss = ce_loss + self.args.r1_lambda * r1_loss
+            # Alignment loss: neutral embeddings <-> bias-included text embeddings
+            # clip.neutral_embedding: shape [1, D]
+            # clip.text_embeddings: shape [C, D]
+            C = self.clip.text_embeddings.size(0)
+            cosine_sim = F.cosine_similarity(self.clip.neutral_embedding.expand(C, -1), self.clip.text_embeddings.detach(), dim=-1)
+            align_loss = -cosine_sim.mean()
 
-        losses = {
-            "ce_loss": ce_loss,
-            'r1_loss': r1_loss,
-            "loss": model_loss
+            # CLIP's fine-tuning Total loss
+            clip_loss = (1 - self.args.c_lambda) * (gender_loss + race_loss) + self.args.c_lambda * align_loss
+
+        clip_losses = {
+            "gender_loss": gender_loss,
+            "race_loss": race_loss,
+            "align_loss": align_loss,
+            "total_loss": clip_loss
         }
 
-        return model_loss, losses, logits
+        clip_logits = {
+            "gender": gender_logits,
+            "race": race_logits
+        }
 
+        # CLIP, CV Model 훈련 동시에 하면서, Knowledge Distillation 하려면,
+        # CV Model's logits, losses 계산하는 부분 추가해야 함. 
+        # 일단, CLIP's fine-tuning만 작성함. 
+        return clip_losses, clip_logits
 
     def train_epoch(self, epoch):
-        self.model.train()
-
-        total_loss = 0.0
+        self.clip.train()
+        train_loss = 0.0
         eval_loss = 0.0
 
-        epoch_bar = tqdm(self.train_loader, desc=f"Epoch {epoch+1}", unit="epoch", position=0, leave=True)
-        for batch_idx, batch in enumerate(epoch_bar):
-            self.model.train()
+        for batch_idx, batch in enumerate(tqdm(self.train_loader, desc=f"Epoch {epoch+1}")):
+            clip_losses, clip_logits = self.compute_losses(batch)
+            clip_loss = clip_losses['total_loss']
 
-            model_loss, losses, outputs = self.compute_losses(batch)
-            model_loss.backward() 
+            self.c_optimizer.zero_grad()
+            clip_loss.backward() 
+            torch.nn.utils.clip_grad_norm_(self.clip.parameters(), max_norm=1.0)
+            self.c_optimizer.step()
 
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+            train_loss += clip_loss.item()
 
-            self.optimizer.step()
-            self.optimizer.zero_grad()
-
-            total_loss += model_loss.item()
-
-            if self.use_wandb and (batch_idx % 10 == 0):
+            if self.args.use_wandb and (batch_idx % 10 == 0):
                 wandb.log({
-                    "train/batch_loss": model_loss.item(),
-                    "train/r1_loss": losses['r1_loss'].item(),
-                    "train/ce_loss": losses['ce_loss'].item(),
+                    "train/batch_loss": clip_loss.item(),
+                    "train/gender_loss": clip_losses['gender_loss'].item(),
+                    "train/race_loss": clip_losses['race_loss'].item(),
+                    "train/align_loss": clip_losses['align_loss'].item(),
                     "epoch": epoch,
                     "step": epoch * len(self.train_loader) + batch_idx
                 })
 
-            if batch_idx + 1 == len(self.train_loader):
-                eval_loss = self.evaluate()
-            epoch_bar.set_postfix(train_loss=f"{total_loss/((batch_idx +1) * self.args.batch_size):.6f}", eval_loss=f"{eval_loss/len(self.val_loader):.6f}")
+        train_loss /= len(self.train_loader)
+        eval_loss = self.evaluate()
 
-        return total_loss / len(self.train_loader)
+        return train_loss, eval_loss
 
     def evaluate(self):
-        self.model.eval()
-        total_loss = 0.0
+        self.clip.eval()
+        eval_loss = 0.0
 
-        log_images = []
         with torch.no_grad():
-            cnt = 0
-            for batch in self.val_loader:
-                model_loss, losses, outputs = self.compute_losses(batch)
-                total_loss += model_loss.item()
-                cnt += 1
+            for batch in tqdm(self.val_loader, desc="Evaluation"):
+                clip_losses, clip_logits = self.compute_losses(batch)
+                clip_loss = clip_losses['total_loss']
+                eval_loss += clip_loss.item()
 
-        if self.use_wandb:
-            wandb.log({
-                "eval/avg_loss": total_loss / cnt, # Use average loss
-                "eval/r1_loss": losses['r1_loss'].item(), # Note: losses from the *last* batch
-                "eval/ce_loss": losses['ce_loss'].item(),
-            })
+        # Bias metric 추가해야 함.
+        eval_loss /= len(self.val_loader)
+        return eval_loss
 
-        if self.use_wandb and log_images:
-            wandb.log({
-                "eval/images": [wandb.Image(img) for img in log_images]
-            })
-
-        return total_loss
 
     def save_checkpoint(self, epoch):
         checkpoint = {
-            "model": self.model.state_dict(),
-            "optimizer": self.optim.state_dict(),
-            "epoch": epoch
+            "epoch": epoch,
+            "clip": self.clip.state_dict(),
+            "c_optimizer": self.c_optimizer.state_dict(),
         }
-        torch.save(checkpoint, os.path.join(self.checkpoint_dir, f"{self.args.model_name}.pt"))
+
+        torch.save(checkpoint, os.path.join(self.checkpoint_dir, f"CLIP-{self.args.clip_backbone}.pt"))
 
     def train(self):
         for epoch in range(self.num_epochs):
             start_time = time.time()
-            avg_loss = self.train_epoch(epoch)
-            if self.use_wandb:
+            train_loss, eval_loss = self.train_epoch(epoch)
+            if self.args.use_wandb:
                 wandb.log({
-                    "epoch/avg_loss": avg_loss,
-                    "epoch/time": time.time() - start_time
+                    "epoch/time": (time.time() - start_time),
+                    "epoch/avg_loss": train_loss,
+                    'eval/avg_loss': eval_loss
                 })
             if (epoch + 1) % 5 == 0:
                 self.save_checkpoint(epoch + 1)
 
-        torch.save(self.model.state_dict(), os.path.join(self.checkpoint_dir, f"{self.args.model_name}.pt"))
+        self.save_checkpoint(epoch + 1)
