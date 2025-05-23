@@ -63,13 +63,15 @@ class Trainer:
 
             # Perceptual loss: CLIP's features <-> Models' features
             # CLIP's neutral features -> Knowledge distillation -> Models's features
-            # 일단 MSE로 함. 
-            pcp_loss = F.mse_loss(model_features, clip_features.detach())
+
+            # Teacher 역할을 하는 CLIP이 계속 바뀌고 있으므로, Student인 CV Model이 안정적으로 학습하기 어려울 수 있음.
+            # -> Student's feature는 CLIP's feature의 EMA 된 것을 따라가도록 하면 안정되지 않을까??? 
+            pcp_loss = F.mse_loss(model_features, clip_features.detach()) # 일단 MSE로 함. 
 
             # CLIP's fine-tuning Total loss
             clip_loss = (1 - self.args.c_lambda) * (clip_g_loss + clip_r_loss) + self.args.c_lambda * align_loss
 
-            # Modle's fine-tuning and knowledge distillation Total los
+            # Modle's fine-tuning and distillation Total los
             model_loss = (1 - self.args.m_lambda) * (model_g_loss + model_r_loss) + self.args.m_lambda * pcp_loss
 
         losses = {
@@ -94,8 +96,8 @@ class Trainer:
 
     def train_epoch(self, epoch):
         self.clip.train()
+        self.model.train()
         train_loss = 0.0
-        eval_loss = 0.0
 
         for batch_idx, batch in enumerate(tqdm(self.train_loader, desc=f"Epoch {epoch+1}")):
             losses, logits = self.compute_losses(batch)
