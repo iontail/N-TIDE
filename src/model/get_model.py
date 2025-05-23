@@ -1,7 +1,7 @@
-from src.model.base_models import CLIP_Model, Base_Model
+from src.model.base_models import CLIP_Model, CV_Model
 
 def get_model(args, device):
     clip = CLIP_Model(args, device)
-    resnet = Base_Model(args)
+    resnet = CV_Model(args)
 
     return clip, resnet

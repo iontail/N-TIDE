@@ -1,12 +1,8 @@
-import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 import clip
-from torchvision.models import resnet50
-
-
+from torchvision import models
 
 class CLIP_Model(nn.Module):
     def __init__(self, args, device):
@@ -52,15 +48,14 @@ class CLIP_Model(nn.Module):
     
 
 
-class Base_Model(nn.Module):
+class CV_Model(nn.Module):
     def __init__(self, args):
-        super(Base_Model, self).__init__()
+        super(CV_Model, self).__init__()
         self.args = args
         
-        self.model = resnet50(weights='IMAGENET1K_V2')
-        resnet_dim = self.model.fc.in_features
+        self.model = models.resnet50(weights='IMAGENET1K_V2')
+        self.model.fc = nn.Linear(self.model.fc.in_features, args.feature_dim)
 
-        self.model.fc = nn.Linear(resnet_dim, args.feature_dim)
         self.gender_classifier = nn.Linear(args.feature_dim, len(args.gender_classes))
         self.race_classifier = nn.Linear(args.feature_dim, len(args.race_classes))
 
@@ -77,8 +72,8 @@ class Base_Model(nn.Module):
 
 if __name__ == "__main__":
     from argparse import Namespace
-    args = Namespace(clip_backbone="RN50", clip_text_prompt='A photo of a', feature_dim = 512, 
-                     gender_classes=['man', 'woman'], race_classes=['White', 'Black', 'Asian', 'Indian', 'Others'], return_features=True)
+    args = Namespace(clip_backbone="RN50", clip_text_prompt='A photo of a', feature_dim = 512, return_features=True,
+                     gender_classes=['man', 'woman'], race_classes=['White', 'Black', 'Asian', 'Indian', 'Others'])
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
@@ -91,10 +86,10 @@ if __name__ == "__main__":
     print("CLIP Model, Gender output shape:", gender_logits.shape)
     print("CLIP Model, Race output shape:", race_logtis.shape)
 
-    base_model = Base_Model(args).to(device)
-    gender_logits, race_logtis, features = base_model(sample_image)
-    print("Base Model, Feature shape:", features.shape)
-    print("Base Model, Gender output shape:", gender_logits.shape)
-    print("Base Model, Gender output shape:", race_logtis.shape)
+    cv_model = CV_Model(args).to(device)
+    gender_logits, race_logtis, features = cv_model(sample_image)
+    print("CV Model, Feature shape:", features.shape)
+    print("CV Model, Gender output shape:", gender_logits.shape)
+    print("CV Model, Gender output shape:", race_logtis.shape)
 
 

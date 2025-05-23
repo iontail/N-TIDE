@@ -32,22 +32,30 @@ def main(args):
         collate_fn=data_collator,
     )
 
-    clip, model = get_model()
+    clip, model = get_model(args, device)
+    clip, model = clip.to(device), model.to(device)
     # clip.load_state_dict()
     # model.load_state_dict()
 
-    clip, model = clip.to(device), model.to(device)
     clip.eval()
     model.eval()
-    
-    predictions = []
+    clip_preds = []
+    model_preds = []
+     
     with torch.no_grad():
-        for images in tqdm(test_loader):
+        for images in tqdm(test_loader, desc='Inference'):
             images = images.to(device)
-            outputs = model(images)
-            predictions.append(outputs.cpu().numpy())
 
-    predictions = np.concatenate(predictions, axis=0)
+            # CLIP
+            clip_g_logits, clip_r_logits, _ = clip(images)
+            clip_preds.append(torch.cat([clip_g_logits, clip_r_logits], dim=1).cpu().numpy())
+
+            # CV Model
+            model_g_logits, model_r_logits, _ = model(images)
+            model_preds.append(torch.cat([model_g_logits, model_r_logits], dim=1).cpu().numpy())
+
+    clip_preds = np.concatenate(clip_preds, axis=0)
+    model_preds = np.concatenate(model_preds, axis=0)
 
 if __name__ == "__main__":
     args = get_arguments()

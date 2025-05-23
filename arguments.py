@@ -14,8 +14,6 @@ def get_arguments():
     parser.add_argument('--race_classes', type=str, nargs=5, default=['White', 'Black', 'Asian', 'Indian', 'Others'])
 
     # Data Augmentation
-    parser.add_argument('--expand_prob', type=float, default=0.5)
-    parser.add_argument('--expand_max_ratio', type=float, default=4)
 
     # Model config
     parser.add_argument('--clip_text_prompt', type=str, default='A photo of a')
@@ -40,6 +38,7 @@ def get_arguments():
     # Loss Weights
     parser.add_argument('--c_lambda', type=int, default=0.5)
     parser.add_argument('--m_lambda', type=int, default=0.5)
+    parser.add_argument('--alpha', type=int, default=0.5)
 
 
     args = parser.parse_args()
