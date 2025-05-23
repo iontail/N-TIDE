@@ -20,7 +20,7 @@ def get_arguments():
     # Model config
     parser.add_argument('--clip_text_prompt', type=str, default='A photo of a')
     parser.add_argument('--clip_backbone', type=str, default='RN50')
-    parser.add_argument('--clip_clf_dim', type=int, default=512)
+    parser.add_argument('--feature_dim', type=int, default=512)
     parser.add_argument('--return_features', type=bool, default=True)
 
     # Train config
@@ -39,6 +39,7 @@ def get_arguments():
 
     # Loss Weights
     parser.add_argument('--c_lambda', type=int, default=0.5)
+    parser.add_argument('--m_lambda', type=int, default=0.5)
 
 
     args = parser.parse_args()

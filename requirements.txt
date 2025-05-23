@@ -66,14 +66,4 @@ typing-inspection==0.4.0
 typing_extensions==4.13.2
 tzdata==2025.2
 urllib3==2.4.0
-wandb==0.19.10
-<<<<<<< HEAD
-wheel==0.45.1
-
-# # OpenAI CLIP
-git+https://github.com/openai/CLIP.git
-=======
-wcwidth==0.2.13
-xxhash==3.5.0
-yarl==1.20.0
->>>>>>> 2d46b8f (Fix: datasets)
+wandb==0.19.10cle

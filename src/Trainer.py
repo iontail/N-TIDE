@@ -44,12 +44,15 @@ class Trainer:
         gender_labels, race_labels = labels[:, 1], labels[:, 2] # labels: [Batch_size, 3] ->  [Age, Gender, Race]
 
         with autocast('cuda', dtype=torch.bfloat16 if self.args.bf16 else torch.float32):
-            # Forward pass
-            gender_logits, race_logits = self.clip(images)
+            clip_g_logits, clip_r_logits, clip_features = self.clip(images)
+            model_g_logits, model_r_logits, model_features = self.model(images)
 
             # Classification losses
-            gender_loss = F.cross_entropy(gender_logits, gender_labels)
-            race_loss = F.cross_entropy(race_logits, race_labels)
+            clip_g_loss = F.cross_entropy(clip_g_logits, gender_labels)
+            clip_r_loss = F.cross_entropy(clip_r_logits, race_labels)
+
+            model_g_loss = F.cross_entropy(model_g_logits, gender_labels)
+            model_r_loss = F.cross_entropy(model_r_logits, race_labels)
 
             # Alignment loss: neutral embeddings <-> bias-included text embeddings
             # clip.neutral_embedding: shape [1, D]
@@ -58,25 +61,36 @@ class Trainer:
             cosine_sim = F.cosine_similarity(self.clip.neutral_embedding.expand(C, -1), self.clip.text_embeddings.detach(), dim=-1)
             align_loss = -cosine_sim.mean()
 
+            # Perceptual loss: CLIP's features <-> Models' features
+            # CLIP's neutral features -> Knowledge distillation -> Models's features
+            # 일단 MSE로 함. 
+            pcp_loss = F.mse_loss(model_features, clip_features.detach())
+
             # CLIP's fine-tuning Total loss
-            clip_loss = (1 - self.args.c_lambda) * (gender_loss + race_loss) + self.args.c_lambda * align_loss
+            clip_loss = (1 - self.args.c_lambda) * (clip_g_loss + clip_r_loss) + self.args.c_lambda * align_loss
 
-        clip_losses = {
-            "gender_loss": gender_loss,
-            "race_loss": race_loss,
-            "align_loss": align_loss,
-            "total_loss": clip_loss
+            # Modle's fine-tuning and knowledge distillation Total los
+            model_loss = (1 - self.args.m_lambda) * (model_g_loss + model_r_loss) + self.args.m_lambda * pcp_loss
+
+        losses = {
+            "clip_gender_loss": clip_g_loss,
+            "clip_race_loss": clip_r_loss,
+            "clip_align_loss": align_loss,
+            "clip_loss": clip_loss,
+            "model_gender_loss": model_g_loss,
+            "model_race_loss": model_r_loss,
+            "model_pcp_loss": pcp_loss,
+            "model_loss": model_loss
         }
 
-        clip_logits = {
-            "gender": gender_logits,
-            "race": race_logits
+        logits = {
+            "clip_gender": clip_g_logits,
+            "clip_race": clip_r_logits,
+            "model_gender": model_g_logits,
+            "model_race": model_r_logits
         }
 
-        # CLIP, CV Model 훈련 동시에 하면서, Knowledge Distillation 하려면,
-        # CV Model's logits, losses 계산하는 부분 추가해야 함. 
-        # 일단, CLIP's fine-tuning만 작성함. 
-        return clip_losses, clip_logits
+        return losses, logits
 
     def train_epoch(self, epoch):
         self.clip.train()
@@ -84,65 +98,95 @@ class Trainer:
         eval_loss = 0.0
 
         for batch_idx, batch in enumerate(tqdm(self.train_loader, desc=f"Epoch {epoch+1}")):
-            clip_losses, clip_logits = self.compute_losses(batch)
-            clip_loss = clip_losses['total_loss']
+            losses, logits = self.compute_losses(batch)
+            loss = self.args.alpha * losses['clip_loss'] + (1-self.args.alpha) * losses['model_loss'] 
 
+            self.m_optimizer.zero_grad()
             self.c_optimizer.zero_grad()
-            clip_loss.backward() 
+
+            loss.backward()
+
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             torch.nn.utils.clip_grad_norm_(self.clip.parameters(), max_norm=1.0)
+
+            self.m_optimizer.step()
             self.c_optimizer.step()
 
-            train_loss += clip_loss.item()
+            train_loss += loss.item()
 
             if self.args.use_wandb and (batch_idx % 10 == 0):
                 wandb.log({
-                    "train/batch_loss": clip_loss.item(),
-                    "train/gender_loss": clip_losses['gender_loss'].item(),
-                    "train/race_loss": clip_losses['race_loss'].item(),
-                    "train/align_loss": clip_losses['align_loss'].item(),
+                    "train/batch_loss": loss.item(),
+                    "train/clip_loss": losses['clip_loss'].item(),
+                    "train/model_loss": losses['model_loss'] .item(),
+
+                    "train/clip_gender_loss": losses['clip_gender_loss'].item(),
+                    "train/clip_race_loss": losses['clip_race_loss'].item(),
+                    "train/clip_align_loss": losses['clip_align_loss'].item(),
+
+                    "train/model_gender_loss": losses['model_gender_loss'].item(), 
+                    "train/model_race_loss": losses['model_race_loss'].item(),
+                    "train/model_pcp_loss": losses['pcp_loss'].item(),
+
                     "epoch": epoch,
                     "step": epoch * len(self.train_loader) + batch_idx
                 })
 
         train_loss /= len(self.train_loader)
-        eval_loss = self.evaluate()
+        eval_losses = self.evaluate()
 
-        return train_loss, eval_loss
+        return train_loss, eval_losses
 
     def evaluate(self):
         self.clip.eval()
-        eval_loss = 0.0
+        self.model.eval()
+        clip_eval_loss = 0.0
+        model_eval_loss = 0.0
 
         with torch.no_grad():
             for batch in tqdm(self.val_loader, desc="Evaluation"):
-                clip_losses, clip_logits = self.compute_losses(batch)
-                clip_loss = clip_losses['total_loss']
-                eval_loss += clip_loss.item()
+                losses, logits = self.compute_losses(batch)
+                clip_cls_loss = losses['clip_gender_loss'] + losses['clip_race_loss']
+                model_cls_loss = losses['model_gender_loss'] + losses['model_race_loss']
+                clip_eval_loss += clip_cls_loss.item()
+                model_eval_loss += model_cls_loss.item()
 
-        # Bias metric 추가해야 함.
-        eval_loss /= len(self.val_loader)
-        return eval_loss
+        # Accuracy, Bias metric 등도 추가해야 함.
+        clip_eval_loss /= len(self.val_loader)
+        model_eval_loss /= len(self.val_loader)
+
+        eval_losses = { 
+            'clip_cls_loss': clip_eval_loss,
+            'model_eval_loss': model_eval_loss
+        }
+
+        return clip_eval_loss, eval_losses
 
 
     def save_checkpoint(self, epoch):
         checkpoint = {
             "epoch": epoch,
             "clip": self.clip.state_dict(),
+            "model": self.model.state_dict(),
             "c_optimizer": self.c_optimizer.state_dict(),
+            "m_optimizer": self.m_optimizer.state_dict(),
         }
 
-        torch.save(checkpoint, os.path.join(self.checkpoint_dir, f"CLIP-{self.args.clip_backbone}.pt"))
+        torch.save(checkpoint, os.path.join(self.checkpoint_dir, f"N-TIDE_E{epoch}.pt"))
 
     def train(self):
         for epoch in range(self.num_epochs):
             start_time = time.time()
-            train_loss, eval_loss = self.train_epoch(epoch)
+            train_loss, eval_losses = self.train_epoch(epoch)
+
             if self.args.use_wandb:
                 wandb.log({
                     "epoch/time": (time.time() - start_time),
-                    "epoch/avg_loss": train_loss,
-                    'eval/avg_loss': eval_loss
+                    "epoch/total_loss": train_loss,
+                    'eval/clip_cls_loss': eval_losses['clip_cls_loss'],
+                    'eval/model_cls_loss': eval_losses['model_cls_loss'],
                 })
+
             if (epoch + 1) % 5 == 0:
                 self.save_checkpoint(epoch + 1)
 
