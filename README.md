@@ -1,7 +1,17 @@
-# Mitigating Bias in Computer Vision via Disentangled Representation Learning in the Language Space Guided by sLLM
+<p align="center">
+  <h1 align="center"> N-TIDE:Debiasing Unimodal Vision Models via Neutral Text Inversion with CLIP
+</h1>
+  <p align="center">
+    <a>Chanhee Lee</a>
+    ·
+    <a>Jinho Jang</a>
+    ·
+    <a>Sarang Han/a>
+  </p>
 
-Chanhee Lee, Jinho Jang, Sarang Han
 
+## :sparkles: N-TIDE: Neutral Text-Inversion for Distillation-based Equilibration
+Sungkyunkwan University Applied Arificial Intelligence
 
 
 ## 1. 설치 
