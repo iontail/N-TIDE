@@ -10,7 +10,7 @@ from torch.amp import autocast
 
 from src.utils.bias_metric import *
 
-class Trainer:
+class OnlineKDTrainer:
     def __init__(self, 
                  clip, 
                  model,
@@ -162,7 +162,7 @@ class Trainer:
             'model_eval_loss': model_eval_loss
         }
 
-        return clip_eval_loss, eval_losses
+        return eval_losses
 
 
     def save_checkpoint(self, epoch):

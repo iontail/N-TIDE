@@ -25,6 +25,9 @@ def get_arguments():
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--num_epochs', type=int, default=100)
     parser.add_argument('--bf16', type=bool, default=False)
+    
+    parser.add_argument('--distill_mode', type=str, choices=['offline', 'online'], default='offline')
+    parser.add_argument('--finetune_model', type=str, choices=['teacher', 'student'], default='student')
 
     parser.add_argument('--learning_rate', type=float, default=1e-3)
     parser.add_argument('--weight_decay', type=float, default=1e-4)

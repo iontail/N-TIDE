@@ -11,7 +11,8 @@ import time
 from arguments import get_arguments
 from src.dataset.get_dataset import get_dataset
 from src.model.get_model import get_model
-from src.trainer import Trainer
+from src.trainer_offline import OfflineKDTrainer
+from src.trainer_online import OnlineKDTrainer
 
 def set_seed(seed):
     random.seed(seed)
@@ -69,17 +70,40 @@ def main(args):
         run_name = f"N-TIDE_run_{time.strftime('%Y%m%d_%H%M%S')}"
         wandb.init(project='N-TIDE', name=run_name, config=args) 
 
-    trainer = Trainer(
-        clip=clip,
-        model=model,
-        train_loader=train_loader,
-        val_loader=val_loader,
-        c_optimizer=c_optimizer,
-        m_optimizer=m_optimizer,
-        device=device,
-        args=args,
-    )
+    if args.distill_mode == 'offline':
+        if args.finetune_model == 'teacher': 
+            trainer = OfflineKDTrainer(
+                model=clip,
+                model_type='teacher',
+                train_loader=train_loader,
+                val_loader=val_loader,
+                optimizer=c_optimizer,
+                device=device,
+                args=args
+            )  
+        elif args.finetune_model == 'student': 
+            trainer = OfflineKDTrainer(
+                model=model,
+                model_type='student',
+                train_loader=train_loader,
+                val_loader=val_loader,
+                optimizer=m_optimizer,
+                device=device,
+                args=args
+            )
 
+    elif args.distill_mode == 'online':
+        trainer = OnlineKDTrainer(
+            clip=clip,
+            model=model,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            c_optimizer=c_optimizer,
+            m_optimizer=m_optimizer,
+            device=device,
+            args=args
+        )
+    
     trainer.train()
 
 if __name__ == "__main__":
