@@ -11,8 +11,8 @@ import time
 from arguments import get_arguments
 from src.dataset.get_dataset import get_dataset
 from src.model.get_model import get_model
-from src.trainer_offline import OfflineKDTrainer
-from src.trainer_online import OnlineKDTrainer
+from src.OfflineTrainer import OfflineKDTrainer
+from src.OnlineTrainer import OnlineKDTrainer
 
 def set_seed(seed):
     random.seed(seed)
@@ -64,7 +64,7 @@ def main(args):
         T_max=args.num_epochs,
         eta_min=args.c_eta_min
     )
-    
+
     m_optimizer = torch.optim.Adam(
         model.parameters(),
         lr=args.m_learning_rate,
