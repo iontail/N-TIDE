@@ -19,7 +19,6 @@ def get_arguments():
     parser.add_argument('--clip_text_prompt', type=str, default='A photo of a')
     parser.add_argument('--clip_backbone', type=str, default='RN50')
     parser.add_argument('--feature_dim', type=int, default=512)
-    parser.add_argument('--return_features', type=bool, default=True)
 
     # Train config
     parser.add_argument('--batch_size', type=int, default=32)
@@ -27,12 +26,21 @@ def get_arguments():
     parser.add_argument('--bf16', type=bool, default=False)
     
     parser.add_argument('--distill_mode', type=str, choices=['offline', 'online'], default='offline')
-    parser.add_argument('--finetune_model', type=str, choices=['teacher', 'student'], default='student')
+    parser.add_argument('--finetune_model', type=str, choices=['teacher', 'student'], default='teacher')
 
-    parser.add_argument('--learning_rate', type=float, default=1e-3)
-    parser.add_argument('--weight_decay', type=float, default=1e-4)
-    parser.add_argument('--optimizer', type=str, default='Adam')
-    parser.add_argument('--scheduler', type=str, default='Cosine')
+    # -- CLIP
+    parser.add_argument('--c_learning_rate', type=float, default=1e-3)
+    parser.add_argument('--c_weight_decay', type=float, default=1e-4)
+    parser.add_argument('--c_optimizer', type=str, default='Adam')
+    parser.add_argument('--c_scheduler', type=str, default='Cosine')
+    parser.add_argument('--c_eta_min', type=float, default=1e-5)
+
+    # -- CV model
+    parser.add_argument('--m_learning_rate', type=float, default=1e-3)
+    parser.add_argument('--m_weight_decay', type=float, default=1e-4)
+    parser.add_argument('--m_optimizer', type=str, default='Adam')
+    parser.add_argument('--m_scheduler', type=str, default='Cosine')
+    parser.add_argument('--m_eta_min', type=float, default=1e-5)
 
     parser.add_argument('--is_train', type=bool, default=True)
     parser.add_argument('--use_wandb', type=bool, default=False)

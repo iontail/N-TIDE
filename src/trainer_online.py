@@ -17,11 +17,14 @@ class OnlineKDTrainer:
                  train_loader,
                  val_loader,
                  c_optimizer,
+                 c_scheduler,
                  m_optimizer,
+                 m_scheduler,
                  device,
                  args,
                  ):
         self.args = args
+        self.device = device
 
         self.clip = clip
         self.model = model 
@@ -30,8 +33,9 @@ class OnlineKDTrainer:
         self.val_loader = val_loader
 
         self.c_optimizer = c_optimizer
+        self.c_scheduler = c_scheduler
         self.m_optimizer = m_optimizer
-        self.device = device
+        self.m_scheduler = m_scheduler
 
         self.num_epochs = self.args.num_epochs
 
@@ -44,35 +48,32 @@ class OnlineKDTrainer:
         gender_labels, race_labels = labels[:, 1], labels[:, 2] # labels: [Batch_size, 3] ->  [Age, Gender, Race]
 
         with autocast('cuda', dtype=torch.bfloat16 if self.args.bf16 else torch.float32):
-            clip_g_logits, clip_r_logits, clip_features = self.clip(images)
-            model_g_logits, model_r_logits, model_features = self.model(images)
+            clip_output = self.clip(images)
+            model_output = self.model(images)
 
             # Classification losses
-            clip_g_loss = F.cross_entropy(clip_g_logits, gender_labels)
-            clip_r_loss = F.cross_entropy(clip_r_logits, race_labels)
+            clip_g_loss = F.cross_entropy(clip_output["gender_logits"], gender_labels)
+            clip_r_loss = F.cross_entropy(clip_output["race_logits"], race_labels)
 
-            model_g_loss = F.cross_entropy(model_g_logits, gender_labels)
-            model_r_loss = F.cross_entropy(model_r_logits, race_labels)
+            model_g_loss = F.cross_entropy(model_output["gender_logits"], gender_labels)
+            model_r_loss = F.cross_entropy(model_output["race_logits"], race_labels)
 
             # Alignment loss: neutral embeddings <-> bias-included text embeddings
-            # clip.neutral_embedding: shape [1, D]
-            # clip.text_embeddings: shape [C, D]
-            C = self.clip.text_embeddings.size(0)
-            cosine_sim = F.cosine_similarity(self.clip.neutral_embedding.expand(C, -1), self.clip.text_embeddings.detach(), dim=-1)
-            align_loss = -cosine_sim.mean()
+            cosine_sim = F.cosine_similarity(clip_output['f_neutral'], clip_output['f_biased'].detach(), dim=-1)
+            align_loss = 1 - cosine_sim.mean()
 
             # Perceptual loss: CLIP's features <-> Models' features
             # CLIP's neutral features -> Knowledge distillation -> Models's features
 
             # Teacher 역할을 하는 CLIP이 계속 바뀌고 있으므로, Student인 CV Model이 안정적으로 학습하기 어려울 수 있음.
             # -> Student's feature는 CLIP's feature의 EMA 된 것을 따라가도록 하면 안정되지 않을까??? 
-            pcp_loss = F.mse_loss(model_features, clip_features.detach()) # 일단 MSE로 함. 
+            kd_loss = F.mse_loss(model_output["features"], clip_output["f_neutral"].detach()) # 일단 MSE로 함. 
 
             # CLIP's fine-tuning Total loss
             clip_loss = (1 - self.args.c_lambda) * (clip_g_loss + clip_r_loss) + self.args.c_lambda * align_loss
 
             # Modle's fine-tuning and distillation Total los
-            model_loss = (1 - self.args.m_lambda) * (model_g_loss + model_r_loss) + self.args.m_lambda * pcp_loss
+            model_loss = (1 - self.args.m_lambda) * (model_g_loss + model_r_loss) + self.args.m_lambda * kd_loss
 
         losses = {
             "clip_gender_loss": clip_g_loss,
@@ -81,15 +82,15 @@ class OnlineKDTrainer:
             "clip_loss": clip_loss,
             "model_gender_loss": model_g_loss,
             "model_race_loss": model_r_loss,
-            "model_pcp_loss": pcp_loss,
+            "model_kd_loss": kd_loss,
             "model_loss": model_loss
         }
 
         logits = {
-            "clip_gender": clip_g_logits,
-            "clip_race": clip_r_logits,
-            "model_gender": model_g_logits,
-            "model_race": model_r_logits
+            "clip_gender": clip_output["gender_logits"],
+            "clip_race": clip_output["race_logits"],
+            "model_gender": model_output["gender_logits"],
+            "model_race": model_output["race_logits"]
         }
 
         return losses, logits
@@ -100,7 +101,7 @@ class OnlineKDTrainer:
         train_loss = 0.0
 
         for batch_idx, batch in enumerate(tqdm(self.train_loader, desc=f"Epoch {epoch+1}")):
-            losses, logits = self.compute_losses(batch)
+            losses, _ = self.compute_losses(batch)
             loss = self.args.alpha * losses['clip_loss'] + (1-self.args.alpha) * losses['model_loss'] 
 
             self.m_optimizer.zero_grad()
@@ -128,11 +129,14 @@ class OnlineKDTrainer:
 
                     "train/model_gender_loss": losses['model_gender_loss'].item(), 
                     "train/model_race_loss": losses['model_race_loss'].item(),
-                    "train/model_pcp_loss": losses['pcp_loss'].item(),
+                    "train/model_kd_loss": losses['kd_loss'].item(),
 
                     "epoch": epoch,
                     "step": epoch * len(self.train_loader) + batch_idx
                 })
+                
+        self.c_scheduler.step()
+        self.m_scheduler.step()
 
         train_loss /= len(self.train_loader)
         eval_losses = self.evaluate()
@@ -147,7 +151,7 @@ class OnlineKDTrainer:
 
         with torch.no_grad():
             for batch in tqdm(self.val_loader, desc="Evaluation"):
-                losses, logits = self.compute_losses(batch)
+                losses, _ = self.compute_losses(batch)
                 clip_cls_loss = losses['clip_gender_loss'] + losses['clip_race_loss']
                 model_cls_loss = losses['model_gender_loss'] + losses['model_race_loss']
                 clip_eval_loss += clip_cls_loss.item()
@@ -191,5 +195,4 @@ class OnlineKDTrainer:
 
             if (epoch + 1) % 5 == 0:
                 self.save_checkpoint(epoch + 1)
-
-        self.save_checkpoint(epoch + 1)
+        self.save_checkpoint(self.num_epochs)

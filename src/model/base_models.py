@@ -14,39 +14,70 @@ class CLIP_Model(nn.Module):
         for param in self.clip.parameters(): # CLIP freeze
             param.requires_grad = False
         
-        i_encoder_dim = self.clip.visual.output_dim
-        t_encoder_dim = self.clip.text_projection.shape[1]
-        self.neutral_embedding = nn.Parameter(torch.randn(1, t_encoder_dim))
+        img_out_dim = self.clip.visual.output_dim
+        txt_in_dim = self.clip.token_embedding.weight.shape[1]
+        txt_out_dim = self.clip.text_projection.shape[1]
 
-        self.classifier =  nn.Linear(i_encoder_dim + t_encoder_dim, args.feature_dim)
-
+        self.fusion_mlp =  nn.Linear(img_out_dim + txt_out_dim, args.feature_dim)
         self.gender_classifier = nn.Linear(args.feature_dim, len(args.gender_classes))
         self.race_classifier = nn.Linear(args.feature_dim, len(args.race_classes))
 
-        # "A photo of a Asian man.", "A photo of a White woman." Etc. Dataset Classes 
-        text_prompts = [
-            f"{args.clip_text_prompt} {race} {gender}."
-            for race in args.race_classes
-            for gender in args.gender_classes
-        ] 
+        # Neutral-Text prompt: "A photo of [Neutral vector]"
+        self.neutral_token = nn.Parameter(torch.randn(1, txt_in_dim)) # [1, D]
         with torch.no_grad():
-            tokens = clip.tokenize(text_prompts).to(self.device)
-            self.register_buffer("text_embeddings", self.clip.encode_text(tokens))  # [C, D]
+            tokenized = clip.tokenize(["A photo of a person"]).to(device)
+            prefix_ids = tokenized[0][:5]  # [BOS, a, photo, of, a]
+            self.register_buffer("prompt_embed", self.clip.token_embedding(prefix_ids)  ) # [5, D]
+
+        # Base: "" (Null-Text prompt) 
+        # 기존 CLIP에 Null-text를 넣게 되면, 텍스트 정보의 의미가 없으므로 이미지 정보만 사용한다고 볼 수 있음. (학습된 multimodal space에서 텍스트 임베딩이 사라진 상태??)
+        # 이렇게 얻은 feature가 CLIP이 기존에 내포하고 있는 biased feature라고 볼 수 있을까..?? 
+        # -> CLIP이 학습한 내재적 biased feature를 얻기 위해서 "A photo of a person."와 같은 general text prompt도 쓸 수 있지 않을까..??  
+        with torch.no_grad():
+            tokens = clip.tokenize([args.clip_text_prompt]).to(self.device)
+            self.register_buffer("text_biased_embed", self.clip.encode_text(tokens))  # [1, D]
 
     def forward(self, x):
-        with torch.no_grad():
-            image_embedding = self.clip.encode_image(x)
-        
         B = x.size(0)
-        fused_embedding = torch.cat([image_embedding, self.neutral_embedding.expand(B, -1)], dim=1)
-        fused_embedding = self.classifier(fused_embedding)
+        with torch.no_grad():
+            image_embedding = self.clip.encode_image(x) 
 
-        gender_logits = self.gender_classifier(fused_embedding)
-        race_logits = self.race_classifier(fused_embedding)
+            biased_embed = self.text_biased_embed.expand(B, -1) 
+            fused_biased = torch.cat([image_embedding, biased_embed], dim=1)
+            fused_biased = self.fusion_mlp(fused_biased)
+        
+        prompt = self.prompt_embed.unsqueeze(0).expand(B, -1, -1) 
+        neutral = self.neutral_token.expand(B, -1).unsqueeze(1)  
+        neutral_prompt = torch.cat([prompt, neutral], dim=1)      # [BOS, a, photo, of, a, [Neutral]]
 
-        return (gender_logits, race_logits, fused_embedding) if self.args.return_features else (gender_logits, race_logits, None)
+        pad_len = 77 - neutral_prompt.size(1)
+        pad = torch.zeros(B, pad_len, neutral_prompt.size(2), device=x.device)
+        neutral_prompt = torch.cat([neutral_prompt, pad], dim=1)   # [B, 77, D]
+
+        pos_embed = self.clip.positional_embedding[:neutral_prompt.size(1), :].unsqueeze(0)
+        neutral_prompt = neutral_prompt + pos_embed
+        neutral_prompt = neutral_prompt.permute(1, 0, 2) # [L, B, D]   
+
+        neutral_prompt = self.clip.transformer(neutral_prompt)   
+        neutral_prompt = neutral_prompt.permute(1, 0, 2) # [B, L, D]          
+        neutral_prompt = self.clip.ln_final(neutral_prompt)          
+
+        neutral_embed = neutral_prompt[:, -1, :]             
+        neutral_embed = torch.matmul(neutral_embed, self.clip.text_projection)
+
+        fused_neutral = torch.cat([image_embedding, neutral_embed], dim=1)
+        fused_neutral = self.fusion_mlp(fused_neutral) 
+
+        gender_logits = self.gender_classifier(fused_neutral)
+        race_logits = self.race_classifier(fused_neutral)
+
+        return {
+            'f_biased': fused_biased,
+            'f_neutral': fused_neutral,
+            'gender_logits': gender_logits,
+            'race_logits': race_logits,
+        }
     
-
 
 class CV_Model(nn.Module):
     def __init__(self, args):
@@ -66,13 +97,16 @@ class CV_Model(nn.Module):
         gender_logits = self.gender_classifier(x)
         race_logits = self.race_classifier(x)
 
-        return (gender_logits, race_logits, features) if self.args.return_features else (gender_logits, race_logits, None)
+        return {
+            'features': features,
+            'gender_logits': gender_logits,
+            'race_logits': race_logits,
+        }
     
-
 
 if __name__ == "__main__":
     from argparse import Namespace
-    args = Namespace(clip_backbone="RN50", clip_text_prompt='A photo of a', feature_dim = 512, return_features=True,
+    args = Namespace(clip_backbone="RN50", clip_text_prompt='', feature_dim = 512, 
                      gender_classes=['man', 'woman'], race_classes=['White', 'Black', 'Asian', 'Indian', 'Others'])
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -81,15 +115,18 @@ if __name__ == "__main__":
     sample_image = torch.randn(batch_size, 3, 224, 224).to(device)
 
     clip_model = CLIP_Model(args, device).to(device)
-    gender_logits, race_logtis, features = clip_model(sample_image)
-    print("CLIP Model, Feature shape:", features.shape)
-    print("CLIP Model, Gender output shape:", gender_logits.shape)
-    print("CLIP Model, Race output shape:", race_logtis.shape)
+    outputs = clip_model(sample_image)
+    print("-- CLIP Model:")
+    print("Fused Neutral Feature shape:", outputs['f_neutral'].shape)
+    print("Fused Biased Feature shape:", outputs['f_biased'].shape)
+    print("Gender logits shape:", outputs['gender_logits'].shape)
+    print("Race logits shape:", outputs['race_logits'].shape)
 
     cv_model = CV_Model(args).to(device)
-    gender_logits, race_logtis, features = cv_model(sample_image)
-    print("CV Model, Feature shape:", features.shape)
-    print("CV Model, Gender output shape:", gender_logits.shape)
-    print("CV Model, Gender output shape:", race_logtis.shape)
+    outputs = cv_model(sample_image)
+    print("\n-- CV Model:")
+    print("Features shape:", outputs['features'].shape)
+    print("Gender logits shape:", outputs['gender_logits'].shape)
+    print("Race logits shape:", outputs['race_logits'].shape)
 
 
