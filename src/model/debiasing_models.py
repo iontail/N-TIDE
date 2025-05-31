@@ -18,10 +18,15 @@ class CLIP_Model(nn.Module):
         txt_in_dim = self.clip.token_embedding.weight.shape[1]
         txt_out_dim = self.clip.text_projection.shape[1]
 
-        self.fusion_mlp =  nn.Linear(img_out_dim + txt_out_dim, args.feature_dim)
+        self.fusion_mlp =  nn.Sequential(
+            nn.Linear(img_out_dim + txt_out_dim, args.feature_dim),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(args.feature_dim, args.feature_dim)
+        )
         self.gender_classifier = nn.Linear(args.feature_dim, len(args.gender_classes))
         self.race_classifier = nn.Linear(args.feature_dim, len(args.race_classes))
-
+        
         # Neutral-Text prompt: "A photo of [Neutral vector]"
         self.neutral_token = nn.Parameter(torch.randn(1, txt_in_dim)) # [1, D]
         with torch.no_grad():
@@ -85,10 +90,14 @@ class CV_Model(nn.Module):
     def __init__(self, args):
         super(CV_Model, self).__init__()
         self.args = args
-        
-        self.model = models.resnet50(weights='IMAGENET1K_V2')
-        self.model.fc = nn.Linear(self.model.fc.in_features, args.feature_dim)
 
+        self.model = models.resnet50(weights='IMAGENET1K_V2')
+        self.model.fc = nn.Sequential(
+            nn.Linear(self.model.fc.in_features, args.feature_dim),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(args.feature_dim, args.feature_dim)
+        )
         self.gender_classifier = nn.Linear(args.feature_dim, len(args.gender_classes))
         self.race_classifier = nn.Linear(args.feature_dim, len(args.race_classes))
 
@@ -102,7 +111,6 @@ class CV_Model(nn.Module):
             'gender_logits': gender_logits,
             'race_logits': race_logits,
         }
-    
     
 
 if __name__ == "__main__":

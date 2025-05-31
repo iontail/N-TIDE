@@ -11,6 +11,7 @@ import time
 from arguments import get_arguments
 from src.dataset.get_dataset import get_dataset
 from src.model.get_model import get_model
+from src.BasicTrainer import BasicTrainer
 from src.OfflineTrainer import OfflineKDTrainer
 from src.OnlineTrainer import OnlineKDTrainer
 
@@ -55,7 +56,7 @@ def main(args):
     if args.bf16:
         clip, model = clip.to(torch.bfloat16), model.to(torch.bfloat16)
 
-    c_optimizer = torch.optim.Adam(
+    c_optimizer = torch.optim.AdamW(
         clip.parameters(),
         lr=args.c_learning_rate,
         weight_decay=args.c_weight_decay
@@ -66,10 +67,12 @@ def main(args):
         eta_min=args.c_eta_min
     )
 
-    m_optimizer = torch.optim.Adam(
+    m_optimizer = torch.optim.SGD(
         model.parameters(),
         lr=args.m_learning_rate,
-        weight_decay=args.m_weight_decay
+        weight_decay=args.m_weight_decay,
+        momentum=0.9,
+        nesterov=True
     )
     m_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         m_optimizer,
@@ -77,49 +80,53 @@ def main(args):
         eta_min=args.m_eta_min
     )
 
+    if args.train_mode == 'baseline':
+        if args.use_wandb:
+            run_name = f"N-TIDE_Baseline_{time.strftime('%m%d_%H%M%S')}"
+            wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args) 
 
-    if args.use_wandb:
-        run_name = f"N-TIDE_run_{time.strftime('%m%d_%H%M%S')}"
-        wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args) 
-
-    if args.distill_mode == 'offline':
-        if args.finetune_model == 'teacher': 
-            trainer = OfflineKDTrainer(
-                model=clip,
-                model_type='teacher',
-                train_loader=train_loader,
-                val_loader=val_loader,
-                optimizer=c_optimizer,
-                scheduler=c_scheduler,
-                device=device,
-                args=args
-            )  
-        elif args.finetune_model == 'student': 
-            trainer = OfflineKDTrainer(
-                model=model,
-                model_type='student',
-                train_loader=train_loader,
-                val_loader=val_loader,
-                optimizer=m_optimizer,
-                scheduler=m_scheduler,
-                device=device,
-                args=args
-            )
-
-    elif args.distill_mode == 'online':
-        trainer = OnlineKDTrainer(
-            clip=clip,
+        trainer = BasicTrainer(
             model=model,
             train_loader=train_loader,
             val_loader=val_loader,
-            c_optimizer=c_optimizer,
-            c_scheduler=c_scheduler,
-            m_optimizer=m_optimizer,
-            m_scheduler=m_scheduler,
+            optimizer=m_optimizer,
+            scheduler=m_scheduler,
+            device=device,
+            args=args,
+        )
+
+    elif args.train_mode == 'offline_teacher':
+        if args.use_wandb:
+            run_name = f"N-TIDE_Teacher_{time.strftime('%m%d_%H%M%S')}"
+            wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args) 
+
+        trainer = OfflineKDTrainer(
+            model=clip,
+            model_type='teacher',
+            train_loader=train_loader,
+            val_loader=val_loader,
+            optimizer=c_optimizer,
+            scheduler=c_scheduler,
+            device=device,
+            args=args
+        )  
+        
+    elif args.train_mode == 'offline_student':
+        if args.use_wandb:
+            run_name = f"N-TIDE_Student_{time.strftime('%m%d_%H%M%S')}"
+            wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args) 
+
+        trainer = OfflineKDTrainer(
+            model=model,
+            model_type='student',
+            train_loader=train_loader,
+            val_loader=val_loader,
+            optimizer=m_optimizer,
+            scheduler=m_scheduler,
             device=device,
             args=args
         )
-    
+
     trainer.train()
 
 if __name__ == "__main__":

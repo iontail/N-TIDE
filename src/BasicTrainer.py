@@ -8,26 +8,18 @@ import torch.nn.functional as F
 from torch.cuda.amp import autocast
 
 from src.utils.bias_metric import *
-from src.model.get_model import get_model
 
-class OfflineKDTrainer:
-    def __init__(self, 
-                 model, 
-                 model_type,
-                 train_loader,
-                 val_loader,
-                 optimizer,
-                 scheduler,
-                 device,
-                 args):
+class BasicTrainer:
+    def __init__(self, model, train_loader,val_loader,
+                 optimizer, scheduler, device, args,):
         self.args = args
         self.device = device
-        
-        self.model = model 
-        self.model_type = model_type  # "teacher" or "student"
+
+        self.model = model
 
         self.train_loader = train_loader
         self.val_loader = val_loader
+
         self.optimizer = optimizer
         self.scheduler = scheduler
 
@@ -39,51 +31,32 @@ class OfflineKDTrainer:
         self.gender_criterion = nn.CrossEntropyLoss(label_smoothing=self.args.gender_smoothing)
         self.race_criterion = nn.CrossEntropyLoss(label_smoothing=self.args.race_smoothing)
 
-        if self.model_type == 'student': 
-            self.clip_pretrained, _ = get_model(self.args, self.device)
-            self.clip_pretrained.load_state_dict(torch.load("~~~~")['model'])
-            self.clip_pretrained = self.clip_pretrained.to(device)
-            self.clip_pretrained.eval()
-
     def compute_losses(self, batch):
         images, labels = batch
         images, labels = images.to(self.device), labels.to(self.device)
-        gender_labels, race_labels = labels[:, 1], labels[:, 2]  # [Age, Gender, Race]
+        gender_labels, race_labels = labels[:, 1], labels[:, 2] # labels: [Batch_size, 3] ->  [Age, Gender, Race]
 
         with autocast('cuda', dtype=torch.bfloat16 if self.args.bf16 else torch.float32):
             output = self.model(images)
 
-            # Classification loss
+            # Classification losses
             cls_g_loss = self.gender_criterion(output['gender_logits'], gender_labels)
             cls_r_loss = self.race_criterion(output['race_logits'], race_labels)
-            
-            losses = {
-                "cls_gender_loss": cls_g_loss,
-                "cls_race_loss": cls_r_loss
-            }
+            total_loss = self.args.b_lambda* cls_g_loss + (1 - self.args.b_lambda) * cls_r_loss
 
-            if self.model_type == 'teacher':
-                # Alignment loss: neutral embeddings <-> bias-included text embeddings (MSE)
-                align_loss = F.mse_loss(output['f_neutral'], output['f_biased'].detach())
-                losses["feature_loss"] = align_loss
-                losses["total_loss"] = (1 - self.args.c_lambda) * (cls_g_loss + cls_r_loss) + self.args.c_lambda * align_loss
+        losses = {
+            "total_loss": total_loss,
+            "cls_gender_loss": cls_g_loss,
+            "cls_race_loss": cls_r_loss
+        }
 
-            elif self.model_type == 'student': 
-                # Knowledge distillation loss: CLIP's features <-> CV model's features (cosine similarity)
-                with torch.no_grad():
-                    clip_output = self.clip_pretrained(images)
-                cosine_sim = F.cosine_similarity(output["features"], clip_output["f_neutral"].detach(), dim=-1)
-                kd_loss = 1 - cosine_sim.mean()
-                losses["feature_loss"] = kd_loss
-                losses["total_loss"] = (1 - self.args.m_lambda) * (cls_g_loss + cls_r_loss) + self.args.m_lambda * kd_loss
-            
         logits = {
             "model_gender": output["gender_logits"],
             "model_race": output["race_logits"],
         }
 
         return losses, logits
-    
+
     def compute_accuracy(self, logits, labels):
         gender_labels = labels[:, 1].to(self.device)
         race_labels = labels[:, 2].to(self.device)
@@ -124,7 +97,6 @@ class OfflineKDTrainer:
                     "train/batch/total_loss": losses['total_loss'].item(),
                     "train/batch/cls_gender_loss": losses['cls_gender_loss'].item(), 
                     "train/batch/cls_race_loss": losses['cls_race_loss'].item(), 
-                    "train/batch/feature_loss": losses['feature_loss'].item(),                    
                 })
 
         self.scheduler.step()
@@ -177,7 +149,7 @@ class OfflineKDTrainer:
             "optimizer": self.optimizer.state_dict(),
         }
 
-        torch.save(checkpoint, os.path.join(self.checkpoint_dir, f"N-TIDE_{self.model_type}_E{epoch}.pt"))
+        torch.save(checkpoint, os.path.join(self.checkpoint_dir, f"Base_ResNet50_E{epoch}.pt"))
 
     def train(self):
         for epoch in range(self.num_epochs):
