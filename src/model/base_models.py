@@ -50,7 +50,6 @@ class CLIP_Model(nn.Module):
         neutral = self.neutral_token.expand(B, -1).unsqueeze(1)  
         neutral_prompt = torch.cat([prompt, neutral], dim=1)      # [BOS, a, photo, of, a, [Neutral]]
 
-
         with torch.no_grad():
             pad_len = 77 - neutral_prompt.size(1)
             pad_embed = self.clip.token_embedding(torch.zeros(pad_len, dtype=torch.long, device=x.device))  # [pad_len, D]
@@ -94,17 +93,16 @@ class CV_Model(nn.Module):
         self.race_classifier = nn.Linear(args.feature_dim, len(args.race_classes))
 
     def forward(self, x):
-        x = self.model(x)
-        features = torch.flatten(x, 1)
-
-        gender_logits = self.gender_classifier(x)
-        race_logits = self.race_classifier(x)
+        features = self.model(x)
+        gender_logits = self.gender_classifier(features)
+        race_logits = self.race_classifier(features)
 
         return {
             'features': features,
             'gender_logits': gender_logits,
             'race_logits': race_logits,
         }
+    
     
 
 if __name__ == "__main__":

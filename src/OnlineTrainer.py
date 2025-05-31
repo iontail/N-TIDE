@@ -6,7 +6,7 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn 
 import torch.nn.functional as F
-from torch.amp import autocast
+from torch.cuda.amp import autocast
 
 from src.utils.bias_metric import *
 
@@ -98,7 +98,7 @@ class OnlineKDTrainer:
         self.model.train()
         train_loss = 0.0
 
-        for batch_idx, batch in enumerate(tqdm(self.train_loader, desc=f"Epoch {epoch+1}")):
+        for batch_idx, batch in enumerate(tqdm(self.train_loader, desc=f"Epoch {epoch+1}/{self.num_epochs}", leave=False)):
             losses, _ = self.compute_losses(batch)
             loss = self.args.alpha * losses['clip_loss'] + (1-self.args.alpha) * losses['model_loss'] 
 
@@ -148,7 +148,7 @@ class OnlineKDTrainer:
         model_eval_loss = 0.0
 
         with torch.no_grad():
-            for batch in tqdm(self.val_loader, desc="Evaluation"):
+            for batch in tqdm(self.val_loader, desc="Evaluation", leave=False):
                 losses, _ = self.compute_losses(batch)
                 clip_cls_loss = losses['clip_gender_loss'] + losses['clip_race_loss']
                 model_cls_loss = losses['model_gender_loss'] + losses['model_race_loss']

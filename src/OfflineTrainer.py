@@ -6,7 +6,7 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn 
 import torch.nn.functional as F
-from torch.amp import autocast
+from torch.cuda.amp import autocast
 
 from src.utils.bias_metric import *
 from src.model.get_model import get_model
@@ -42,7 +42,8 @@ class OfflineKDTrainer:
         if self.model_type == 'student': 
             # Load pretrained CLIP (Teacher model)
             self.clip_pretrained, _ = get_model(self.args, self.device)
-            self.clip_pretrained.load_state_dict(torch.load("~~~ clip path ~~~"))
+            self.clip_pretrained.load_state_dict(torch.load("/content/N-TIDE/ckpt/N-TIDE_teacher_E5.pt")['model'])
+            self.clip_pretrained = self.clip_pretrained.to(device)
             self.clip_pretrained.eval()
 
 
@@ -59,14 +60,14 @@ class OfflineKDTrainer:
             cls_r_loss = F.cross_entropy(output['race_logits'], race_labels)
 
             losses = {
-                "gender_cls_loss": cls_g_loss,
-                "race_cls_loss": cls_r_loss
+                "cls_gender_loss": cls_g_loss,
+                "cls_race_loss": cls_r_loss
             }
 
             if self.model_type == 'teacher':
                 # Alignment loss: neutral embeddings <-> bias-included text embeddings (MSE)
                 align_loss = F.mse_loss(output['f_neutral'], output['f_biased'].detach())
-                losses["align_loss"] = align_loss
+                losses["feature_loss"] = align_loss
                 losses["total_loss"] = (1 - self.args.c_lambda) * (cls_g_loss + cls_r_loss) + self.args.c_lambda * align_loss
 
             elif self.model_type == 'student': 
@@ -76,7 +77,7 @@ class OfflineKDTrainer:
                 # Knowledge distillation loss: CLIP's features <-> CV model's features (cosine similarity)
                 cosine_sim = F.cosine_similarity(output["features"], clip_output["f_neutral"].detach(), dim=-1)
                 kd_loss = 1 - cosine_sim.mean()
-                losses["kd_loss"] = kd_loss
+                losses["feature_loss"] = kd_loss
                 losses["total_loss"] = (1 - self.args.m_lambda) * (cls_g_loss + cls_r_loss) + self.args.m_lambda * kd_loss
             
         logits = {
@@ -90,7 +91,7 @@ class OfflineKDTrainer:
         self.model.train()
         train_loss = 0.0
 
-        for batch_idx, batch in enumerate(tqdm(self.train_loader, desc=f"Epoch {epoch+1}")):
+        for batch_idx, batch in enumerate(tqdm(self.train_loader, desc=f"Epoch {epoch+1}/{self.num_epochs}", leave=False)):
             losses, _ = self.compute_losses(batch)
             loss = losses['total_loss']
 
@@ -107,7 +108,7 @@ class OfflineKDTrainer:
 
                     "train/cls_gender_loss": losses['cls_gender_loss'].item(),
                     "train/cls_race_loss": losses['cls_race_loss'].item(),
-                    "train/mse_loss": losses['mse_loss'].item(),
+                    "train/feature_loss": losses['feature_loss'].item(),
                     
                     "epoch": epoch,
                     "step": epoch * len(self.train_loader) + batch_idx
@@ -123,20 +124,39 @@ class OfflineKDTrainer:
     def evaluate(self):
         self.model.eval()
         eval_loss = 0.0
+        gender_correct, gender_total = 0, 0
+        race_correct, race_total = 0, 0
 
         with torch.no_grad():
-            for batch in tqdm(self.val_loader, desc="Evaluation"):
-                losses, _ = self.compute_losses(batch)
+            for batch in tqdm(self.val_loader, desc="Evaluation", leave=False):
+                losses, logits = self.compute_losses(batch)
                 eval_loss += losses['total_loss'].item()
+      
+                gender_preds = logits['model_gender'].argmax(dim=1)
+                race_preds = logits['model_race'].argmax(dim=1)
+                
+                _, labels = batch
+                gender_labels = labels[:, 1].to(self.device)
+                race_labels = labels[:, 2].to(self.device)
+
+                gender_correct += (gender_preds == gender_labels).sum().item()
+                gender_total += gender_labels.size(0)
+
+                race_correct += (race_preds == race_labels).sum().item()
+                race_total += race_labels.size(0)
                 
         # Accuracy, Bias metric 등도 추가해야 함.
         eval_loss /= len(self.val_loader)
+        gender_acc = gender_correct / gender_total
+        race_acc = race_correct / race_total
 
         eval_losses = { 
             'eval_loss': eval_loss, 
+            'eval_gender_acc': gender_acc,
+            'eval_race_acc': race_acc,
             'cls_gender_loss': losses['cls_gender_loss'].item(), # 마지막 배치; 수정 필요
             'cls_race_loss': losses['cls_race_loss'].item(), # 마지막 배치; 수정 필요
-            'mse_loss': losses['mse_loss'].item() # 마지막 배치; 수정 필요
+            'feature_loss': losses['feature_loss'].item() # 마지막 배치; 수정 필요
         }
 
         return eval_losses
@@ -160,10 +180,11 @@ class OfflineKDTrainer:
                 wandb.log({
                     "epoch/time": (time.time() - start_time),
                     "epoch/total_loss": train_loss,
-                    'epoch/eval_loss': eval_losses['total_loss'],
+                    'epoch/eval_loss': eval_losses['eval_loss'],
+                    'epoch/eval_gender_acc': eval_losses['eval_gender_acc'],
+                    'epoch/eval_race_acc': eval_losses['eval_race_acc'],
                 })
 
             if (epoch + 1) % 5 == 0:
                 self.save_checkpoint(epoch + 1)
-
-        self.save_checkpoint(epoch + 1)
+        self.save_checkpoint(self.num_epochs)

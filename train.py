@@ -34,6 +34,7 @@ def main(args):
         batch_size=args.batch_size, 
         shuffle=True,  
         collate_fn=data_collator,
+        drop_last=True,
         pin_memory=True,
         num_workers=num_workers,
         persistent_workers=True
@@ -71,15 +72,15 @@ def main(args):
         weight_decay=args.m_weight_decay
     )
     m_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        c_optimizer,
+        m_optimizer,
         T_max=args.num_epochs,
         eta_min=args.m_eta_min
     )
 
 
     if args.use_wandb:
-        run_name = f"N-TIDE_run_{time.strftime('%Y%m%d_%H%M%S')}"
-        wandb.init(project='N-TIDE', name=run_name, config=args) 
+        run_name = f"N-TIDE_run_{time.strftime('%m%d_%H%M%S')}"
+        wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args) 
 
     if args.distill_mode == 'offline':
         if args.finetune_model == 'teacher': 

@@ -14,7 +14,13 @@ def get_dataset(args):
         train_dataset, valid_dataset, test_dataset
     """
     dataset = load_dataset(args.dataset_path, split='train')
-
+    dataset = dataset.filter(
+        lambda x: x["__key__"] not in ["UTKFace/55_0_0_20170116232725357jpg", # Image is None 
+                                   "UTKFace/39_1_20170116174525125",  # Lable is invalid
+                                   "UTKFace/61_1_20170109150557335",  # Lable is invalid
+                                   "UTKFace/61_1_20170109142408075",] # Lable is invalid
+    )
+    
     assert sum(args.dataset_split_ratio) == 1.0, "Split ratios must sum to 1.0"
     train_ratio, valid_ratio, test_ratio = args.dataset_split_ratio
     total_size = len(dataset)

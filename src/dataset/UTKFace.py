@@ -12,6 +12,9 @@ class UTKFace_Dataset(Dataset):
         self.dataset = dataset
         self.transform = transform
 
+    def __len__(self):
+        return len(self.dataset)
+
     def __getitem__(self, idx):
         sample = self.dataset[idx]
 
