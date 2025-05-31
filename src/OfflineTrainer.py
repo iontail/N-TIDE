@@ -20,17 +20,15 @@ class OfflineKDTrainer:
                  optimizer,
                  scheduler,
                  device,
-                 args,
-                 ):
+                 args):
         self.args = args
         self.device = device
         
         self.model = model 
-        self.model_type = model_type # teacher or student
+        self.model_type = model_type  # "teacher" or "student"
 
         self.train_loader = train_loader
         self.val_loader = val_loader
-
         self.optimizer = optimizer
         self.scheduler = scheduler
 
@@ -39,26 +37,27 @@ class OfflineKDTrainer:
         self.checkpoint_dir = self.args.checkpoint_dir
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
+        self.gender_criterion = nn.CrossEntropyLoss(label_smoothing=self.args.gender_smoothing)
+        self.race_criterion = nn.CrossEntropyLoss(label_smoothing=self.args.race_smoothing)
+
         if self.model_type == 'student': 
-            # Load pretrained CLIP (Teacher model)
             self.clip_pretrained, _ = get_model(self.args, self.device)
-            self.clip_pretrained.load_state_dict(torch.load("/content/N-TIDE/ckpt/N-TIDE_teacher_E5.pt")['model'])
+            self.clip_pretrained.load_state_dict(torch.load("~~~~")['model'])
             self.clip_pretrained = self.clip_pretrained.to(device)
             self.clip_pretrained.eval()
-
 
     def compute_losses(self, batch):
         images, labels = batch
         images, labels = images.to(self.device), labels.to(self.device)
-        gender_labels, race_labels = labels[:, 1], labels[:, 2] # labels: [Batch_size, 3] ->  [Age, Gender, Race]
+        gender_labels, race_labels = labels[:, 1], labels[:, 2]  # [Age, Gender, Race]
 
         with autocast('cuda', dtype=torch.bfloat16 if self.args.bf16 else torch.float32):
             output = self.model(images)
 
-            # Classification losses
-            cls_g_loss = F.cross_entropy(output['gender_logits'], gender_labels)
-            cls_r_loss = F.cross_entropy(output['race_logits'], race_labels)
-
+            # Classification loss
+            cls_g_loss = self.gender_criterion(output['gender_logits'], gender_labels)
+            cls_r_loss = self.race_criterion(output['race_logits'], race_labels)
+            
             losses = {
                 "cls_gender_loss": cls_g_loss,
                 "cls_race_loss": cls_r_loss
@@ -104,14 +103,11 @@ class OfflineKDTrainer:
 
             if self.args.use_wandb and (batch_idx % 10 == 0):
                 wandb.log({
-                    "train/batch_loss": loss.item(),
-
-                    "train/cls_gender_loss": losses['cls_gender_loss'].item(),
-                    "train/cls_race_loss": losses['cls_race_loss'].item(),
-                    "train/feature_loss": losses['feature_loss'].item(),
-                    
-                    "epoch": epoch,
-                    "step": epoch * len(self.train_loader) + batch_idx
+                    "step": epoch * len(self.train_loader) + batch_idx,
+                    "train/batch/total_loss": losses['total_loss'],
+                    "train/batch/cls_gender_loss": losses['cls_gender_loss'].item(), 
+                    "train/batch/cls_race_loss": losses['cls_race_loss'].item(), 
+                    "train/batch/feature_loss": losses['feature_loss'].item(),                    
                 })
 
         self.scheduler.step()        
@@ -131,10 +127,11 @@ class OfflineKDTrainer:
             for batch in tqdm(self.val_loader, desc="Evaluation", leave=False):
                 losses, logits = self.compute_losses(batch)
                 eval_loss += losses['total_loss'].item()
-      
+
                 gender_preds = logits['model_gender'].argmax(dim=1)
                 race_preds = logits['model_race'].argmax(dim=1)
-                
+
+                # Accuracy
                 _, labels = batch
                 gender_labels = labels[:, 1].to(self.device)
                 race_labels = labels[:, 2].to(self.device)
@@ -144,19 +141,16 @@ class OfflineKDTrainer:
 
                 race_correct += (race_preds == race_labels).sum().item()
                 race_total += race_labels.size(0)
-                
-        # Accuracy, Bias metric 등도 추가해야 함.
+
+        # Bias metric 추가해야 함.
         eval_loss /= len(self.val_loader)
         gender_acc = gender_correct / gender_total
         race_acc = race_correct / race_total
 
-        eval_losses = { 
-            'eval_loss': eval_loss, 
+        eval_losses = {
+            'eval_loss': eval_loss,
             'eval_gender_acc': gender_acc,
-            'eval_race_acc': race_acc,
-            'cls_gender_loss': losses['cls_gender_loss'].item(), # 마지막 배치; 수정 필요
-            'cls_race_loss': losses['cls_race_loss'].item(), # 마지막 배치; 수정 필요
-            'feature_loss': losses['feature_loss'].item() # 마지막 배치; 수정 필요
+            'eval_race_acc': race_acc
         }
 
         return eval_losses
@@ -178,11 +172,11 @@ class OfflineKDTrainer:
 
             if self.args.use_wandb:
                 wandb.log({
-                    "epoch/time": (time.time() - start_time),
-                    "epoch/total_loss": train_loss,
+                    "epoch": epoch + 1,
+                    "epoch/train_loss": train_loss,
                     'epoch/eval_loss': eval_losses['eval_loss'],
                     'epoch/eval_gender_acc': eval_losses['eval_gender_acc'],
-                    'epoch/eval_race_acc': eval_losses['eval_race_acc'],
+                    'epoch/eval_race_acc': eval_losses['eval_race_acc']
                 })
 
             if (epoch + 1) % 5 == 0:

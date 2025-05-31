@@ -21,8 +21,7 @@ class OnlineKDTrainer:
                  m_optimizer,
                  m_scheduler,
                  device,
-                 args,
-                 ):
+                 args):
         self.args = args
         self.device = device
 
@@ -38,25 +37,27 @@ class OnlineKDTrainer:
         self.m_scheduler = m_scheduler
 
         self.num_epochs = self.args.num_epochs
-
         self.checkpoint_dir = self.args.checkpoint_dir
         os.makedirs(self.checkpoint_dir, exist_ok=True)
+
+        self.gender_criterion = nn.CrossEntropyLoss(label_smoothing=self.args.gender_smoothing)
+        self.race_criterion   = nn.CrossEntropyLoss(label_smoothing=self.args.race_smoothing)
 
     def compute_losses(self, batch):
         images, labels = batch
         images, labels = images.to(self.device), labels.to(self.device)
-        gender_labels, race_labels = labels[:, 1], labels[:, 2] # labels: [Batch_size, 3] ->  [Age, Gender, Race]
+        gender_labels, race_labels = labels[:, 1], labels[:, 2]
 
         with autocast('cuda', dtype=torch.bfloat16 if self.args.bf16 else torch.float32):
             clip_output = self.clip(images)
             model_output = self.model(images)
 
-            # Classification losses
-            clip_g_loss = F.cross_entropy(clip_output["gender_logits"], gender_labels)
-            clip_r_loss = F.cross_entropy(clip_output["race_logits"], race_labels)
+            # Classification loss
+            clip_g_loss = self.gender_criterion(clip_output["gender_logits"], gender_labels)
+            clip_r_loss = self.race_criterion(clip_output["race_logits"], race_labels)
 
-            model_g_loss = F.cross_entropy(model_output["gender_logits"], gender_labels)
-            model_r_loss = F.cross_entropy(model_output["race_logits"], race_labels)
+            model_g_loss = self.gender_criterion(model_output["gender_logits"], gender_labels)
+            model_r_loss = self.race_criterion(model_output["race_logits"], race_labels)
 
             # Alignment loss: neutral embeddings <-> bias-included text embeddings (MSE)
             align_loss = F.mse_loss(clip_output['f_neutral'], clip_output['f_biased'].detach())

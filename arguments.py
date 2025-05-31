@@ -47,6 +47,8 @@ def get_arguments():
     parser.add_argument('--checkpoint_dir', type=str, default='./ckpt')
 
     # Loss Weights
+    parser.add_argument('--gender_smoothing', type=float, default=0.1)
+    parser.add_argument('--race_smoothing', type=float, default=0.1)
     parser.add_argument('--c_lambda', type=int, default=0.5)
     parser.add_argument('--m_lambda', type=int, default=0.5)
     parser.add_argument('--alpha', type=int, default=0.5)
