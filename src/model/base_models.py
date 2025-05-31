@@ -50,9 +50,12 @@ class CLIP_Model(nn.Module):
         neutral = self.neutral_token.expand(B, -1).unsqueeze(1)  
         neutral_prompt = torch.cat([prompt, neutral], dim=1)      # [BOS, a, photo, of, a, [Neutral]]
 
-        pad_len = 77 - neutral_prompt.size(1)
-        pad = torch.zeros(B, pad_len, neutral_prompt.size(2), device=x.device)
-        neutral_prompt = torch.cat([neutral_prompt, pad], dim=1)   # [B, 77, D]
+
+        with torch.no_grad():
+            pad_len = 77 - neutral_prompt.size(1)
+            pad_embed = self.clip.token_embedding(torch.zeros(pad_len, dtype=torch.long, device=x.device))  # [pad_len, D]
+            pad_embed = pad_embed.unsqueeze(0).expand(B, -1, -1)  # [B, pad_len, D]
+            neutral_prompt = torch.cat([neutral_prompt, pad_embed], dim=1)  # [B, 77, D]
 
         pos_embed = self.clip.positional_embedding[:neutral_prompt.size(1), :].unsqueeze(0)
         neutral_prompt = neutral_prompt + pos_embed
@@ -62,7 +65,7 @@ class CLIP_Model(nn.Module):
         neutral_prompt = neutral_prompt.permute(1, 0, 2) # [B, L, D]          
         neutral_prompt = self.clip.ln_final(neutral_prompt)          
 
-        neutral_embed = neutral_prompt[:, -1, :]             
+        neutral_embed = neutral_prompt[:, 0, :]             
         neutral_embed = torch.matmul(neutral_embed, self.clip.text_projection)
 
         fused_neutral = torch.cat([image_embedding, neutral_embed], dim=1)

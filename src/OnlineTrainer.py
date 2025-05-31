@@ -58,20 +58,18 @@ class OnlineKDTrainer:
             model_g_loss = F.cross_entropy(model_output["gender_logits"], gender_labels)
             model_r_loss = F.cross_entropy(model_output["race_logits"], race_labels)
 
-            # Alignment loss: neutral embeddings <-> bias-included text embeddings
-            cosine_sim = F.cosine_similarity(clip_output['f_neutral'], clip_output['f_biased'].detach(), dim=-1)
-            align_loss = 1 - cosine_sim.mean()
+            # Alignment loss: neutral embeddings <-> bias-included text embeddings (MSE)
+            align_loss = F.mse_loss(clip_output['f_neutral'], clip_output['f_biased'].detach())
 
-            # Perceptual loss: CLIP's features <-> Models' features
+            # Similarity loss: CLIP's features <-> Models' features (cosine similarity)
             # CLIP's neutral features -> Knowledge distillation -> Models's features
-
             # Teacher 역할을 하는 CLIP이 계속 바뀌고 있으므로, Student인 CV Model이 안정적으로 학습하기 어려울 수 있음.
             # -> Student's feature는 CLIP's feature의 EMA 된 것을 따라가도록 하면 안정되지 않을까??? 
-            kd_loss = F.mse_loss(model_output["features"], clip_output["f_neutral"].detach()) # 일단 MSE로 함. 
+            cosine_sim = F.cosine_similarity(model_output["features"], clip_output["f_neutral"].detach(), dim=-1)
+            kd_loss = 1 - cosine_sim.mean()
 
             # CLIP's fine-tuning Total loss
             clip_loss = (1 - self.args.c_lambda) * (clip_g_loss + clip_r_loss) + self.args.c_lambda * align_loss
-
             # Modle's fine-tuning and distillation Total los
             model_loss = (1 - self.args.m_lambda) * (model_g_loss + model_r_loss) + self.args.m_lambda * kd_loss
 

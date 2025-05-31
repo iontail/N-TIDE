@@ -64,19 +64,18 @@ class OfflineKDTrainer:
             }
 
             if self.model_type == 'teacher':
-                # Alignment loss: neutral embeddings <-> bias-included text embeddings
-                cosine_sim = F.cosine_similarity(output['f_neutral'], output['f_biased'].detach(), dim=-1)
-                align_loss = 1 - cosine_sim.mean()
+                # Alignment loss: neutral embeddings <-> bias-included text embeddings (MSE)
+                align_loss = F.mse_loss(output['f_neutral'], output['f_biased'].detach())
                 losses["align_loss"] = align_loss
                 losses["total_loss"] = (1 - self.args.c_lambda) * (cls_g_loss + cls_r_loss) + self.args.c_lambda * align_loss
 
             elif self.model_type == 'student': 
                 with torch.no_grad():
                     clip_output = self.clip_pretrained(images)
-                    clip_features = clip_output["f_neutral"]
 
-                # Knowledge distillation loss: CLIP's features <-> CV model's features 
-                kd_loss = F.mse_loss(output["features"], clip_features)
+                # Knowledge distillation loss: CLIP's features <-> CV model's features (cosine similarity)
+                cosine_sim = F.cosine_similarity(output["features"], clip_output["f_neutral"].detach(), dim=-1)
+                kd_loss = 1 - cosine_sim.mean()
                 losses["kd_loss"] = kd_loss
                 losses["total_loss"] = (1 - self.args.m_lambda) * (cls_g_loss + cls_r_loss) + self.args.m_lambda * kd_loss
             
