@@ -5,10 +5,26 @@ import clip
 from torchvision import models
 
 class CLIP_Model(nn.Module):
-    def __init__(self, args, device):
+    """
+    Args:
+        num_classes (tuple): A tuple of integers (num_gender_classes, num_race_classes).
+        args (Namespace):
+            - clip_backbone (str): Name of the CLIP backbone to use (e.g., 'RN50').
+            - clip_text_prompt (str): Prompt used to construct the biased text embedding.
+            - feature_dim (int): Hidden feature dimension used in fusion and classifiers.
+
+    Returns:
+        A model that takes an image tensor of shape (B, 3, 224, 224) and returns a dictionary with:
+            - 'f_biased' (Tensor): Fused feature from image and biased text embedding, shape (B, feature_dim).
+            - 'f_neutral' (Tensor): Fused feature from image and neutral text prompt, shape (B, feature_dim).
+            - 'gender_logits' (Tensor): Gender classification logits, shape (B, num_gender_classes).
+            - 'race_logits' (Tensor): Race classification logits, shape (B, num_race_classes).
+    """
+    def __init__(self, num_classes, args, device):
         super(CLIP_Model, self).__init__()
         self.args = args
         self.device = device
+        gender_classes, race_classes = num_classes
 
         self.clip, _ = clip.load(args.clip_backbone, device=self.device) 
         for param in self.clip.parameters(): # CLIP freeze
@@ -24,8 +40,8 @@ class CLIP_Model(nn.Module):
             nn.Dropout(0.5),
             nn.Linear(args.feature_dim, args.feature_dim)
         )
-        self.gender_classifier = nn.Linear(args.feature_dim, len(args.gender_classes))
-        self.race_classifier = nn.Linear(args.feature_dim, len(args.race_classes))
+        self.gender_classifier = nn.Linear(args.feature_dim, gender_classes)
+        self.race_classifier = nn.Linear(args.feature_dim, race_classes)
         
         # Neutral-Text prompt: "A photo of [Neutral vector]"
         self.neutral_token = nn.Parameter(torch.randn(1, txt_in_dim)) # [1, D]
@@ -87,9 +103,23 @@ class CLIP_Model(nn.Module):
     
 
 class CV_Model(nn.Module):
-    def __init__(self, args):
+    """
+    Args:
+        num_classes (tuple): A tuple of integers (num_gender_classes, num_race_classes).
+        args (Namespace): 
+            - feature_dim (int): Hidden feature dimension used in projection and classification.
+
+    Returns:
+        A model that takes an image tensor of shape (B, 3, 224, 224) and returns a dictionary with:
+            - 'features' (Tensor): Extracted visual features, shape (B, feature_dim).
+            - 'gender_logits' (Tensor): Gender classification logits, shape (B, num_gender_classes).
+            - 'race_logits' (Tensor): Race classification logits, shape (B, num_race_classes).
+    """
+
+    def __init__(self, num_classes, args):
         super(CV_Model, self).__init__()
         self.args = args
+        gender_classes, race_classes = num_classes
 
         self.model = models.resnet50(weights='IMAGENET1K_V2')
         self.model.fc = nn.Sequential(
@@ -98,8 +128,8 @@ class CV_Model(nn.Module):
             nn.Dropout(0.5),
             nn.Linear(args.feature_dim, args.feature_dim)
         )
-        self.gender_classifier = nn.Linear(args.feature_dim, len(args.gender_classes))
-        self.race_classifier = nn.Linear(args.feature_dim, len(args.race_classes))
+        self.gender_classifier = nn.Linear(args.feature_dim, gender_classes)
+        self.race_classifier = nn.Linear(args.feature_dim, race_classes)
 
     def forward(self, x):
         features = self.model(x)

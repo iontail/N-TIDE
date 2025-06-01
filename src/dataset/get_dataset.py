@@ -1,7 +1,11 @@
-import torchvision.transforms as transforms
 from torch.utils.data.dataloader import default_collate 
-from datasets import load_dataset
+
+from sklearn.model_selection import train_test_split
+from datasets import load_dataset, Dataset, Image
+
+from src.dataset.get_transforms import get_transforms
 from src.dataset.UTKFace import UTKFace_Dataset
+from src.dataset.FairFace import FairFaceDataset
 
 def get_dataset(args):
     """
@@ -13,66 +17,62 @@ def get_dataset(args):
     Returns:
         train_dataset, valid_dataset, test_dataset
     """
-    dataset = load_dataset(args.dataset_path, split='train')
-    dataset = dataset.filter(
-        lambda x: x["__key__"] not in ["UTKFace/55_0_0_20170116232725357jpg", # Image is None 
-                                   "UTKFace/39_1_20170116174525125",  # Lable is invalid
-                                   "UTKFace/61_1_20170109150557335",  # Lable is invalid
-                                   "UTKFace/61_1_20170109142408075",] # Lable is invalid
-    )
-    
-    assert sum(args.dataset_split_ratio) == 1.0, "Split ratios must sum to 1.0"
-    train_ratio, valid_ratio, test_ratio = args.dataset_split_ratio
-    total_size = len(dataset)
-    train_end = int(train_ratio * total_size)
-    valid_end = train_end + int(valid_ratio * total_size)
+    train_transforms, test_transforms = get_transforms(args)
 
-    dataset_sh = dataset.shuffle(seed=args.seed)
-    train_data = dataset_sh.select(range(0, train_end))
-    valid_data = dataset_sh.select(range(train_end, valid_end))
-    test_data  = dataset_sh.select(range(valid_end, total_size))
+    # UTKFace Dataset
+    if args.dataset_name == "UTKFace":
+        train_ratio, valid_ratio, test_ratio = args.utkface_split_ratio
+        test_size = test_ratio / (valid_ratio + test_ratio)
 
-    if args.train_mode == 'baseline' or args.train_mode == 'offline_student': 
-        # For CV model pretrained on ImageNet
-        mean = [0.485, 0.456, 0.406] 
-        std = [0.229, 0.224, 0.225]
-    elif args.train_mode == 'offline_teacher':
-        # For CLIP model (Open AI)
-        mean = [0.48145466, 0.4578275, 0.40821073]
-        std = [0.26862954, 0.26130258, 0.27577711]
+        full_train_data = load_dataset("py97/UTKFace-Cropped", split='train')
+        full_train_data = full_train_data.filter(
+            lambda x: x["__key__"] not in ["UTKFace/55_0_0_20170116232725357jpg", # Image is None 
+                                    "UTKFace/39_1_20170116174525125",  # Lable is invalid
+                                    "UTKFace/61_1_20170109150557335",  # Lable is invalid
+                                    "UTKFace/61_1_20170109142408075",] # Lable is invalid
+        )
 
-    if args.train_transform_type == 'strong':
-        train_transforms = transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandAugment(num_ops=2, magnitude=9),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=mean, std=std),
-            transforms.RandomErasing(p=0.5),
-        ])
-    elif args.train_transform_type == 'weak':
-        train_transforms = transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.05),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=mean, std=std)
-        ])
+        df = full_train_data.to_pandas()
+        df[["age", "gender", "race"]] = df["__key__"].str.extract(r'(\d+)_(\d+)_(\d+)')
+        df[["age", "gender", "race"]] = df[["age", "gender", "race"]].astype(int)
 
-    test_transforms = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=mean, std=std)
-    ])
-    
-    if args.is_train:
-        train_dataset = UTKFace_Dataset(train_data, transform=train_transforms)
-        valid_dataset = UTKFace_Dataset(valid_data, transform=test_transforms)
-        data_collator = default_collate
-        return train_dataset, valid_dataset, data_collator
-    else:
-        test_dataset = UTKFace_Dataset(test_data, transform=test_transforms)
-        data_collator = default_collate
-        return test_dataset, None, data_collator
+        train_df, temp_df = train_test_split(df, test_size=1-train_ratio, stratify=df['race'], random_state=42)
+        val_df, test_df  = train_test_split(temp_df, test_size=test_size, stratify=temp_df['race'], random_state=42)
 
+        train_data = Dataset.from_pandas(train_df.reset_index(drop=True))
+        valid_data = Dataset.from_pandas(val_df.reset_index(drop=True))
+        test_data = Dataset.from_pandas(test_df.reset_index(drop=True))
+        
+        if args.is_train:
+            train_dataset = UTKFace_Dataset(train_data, transform=train_transforms)
+            valid_dataset = UTKFace_Dataset(valid_data, transform=test_transforms)
+            data_collator = default_collate
+            return train_dataset, valid_dataset, data_collator
+        else:
+            test_dataset = UTKFace_Dataset(test_data, transform=test_transforms)
+            data_collator = default_collate
+            return test_dataset, None, data_collator
+
+    # FairFace Dataset
+    elif args.dataset_name == "FairFace":
+        train_ratio, valid_ratio = args.fairface_split_ratio
+
+        full_train_data = load_dataset("HuggingFaceM4/FairFace", "0.25", split='train')
+        test_data = load_dataset("HuggingFaceM4/FairFace", "0.25", split='validation')
+
+        df = full_train_data.to_pandas()
+        train_df, val_df = train_test_split(df, test_size=valid_ratio, stratify=df["race"], random_state=42)
+
+        train_data = Dataset.from_pandas(train_df.reset_index(drop=True))
+        train_data = train_data.cast_column("image", Image())
+        valid_data = Dataset.from_pandas(val_df.reset_index(drop=True))
+        valid_data = valid_data.cast_column("image", Image())
+
+        if args.is_train:
+            train_dataset = FairFaceDataset(train_data, transform=train_transforms)
+            valid_dataset = FairFaceDataset(valid_data, transform=test_transforms)
+            return train_dataset, valid_dataset, default_collate
+        else:
+            test_dataset = FairFaceDataset(test_data, transform=test_transforms)
+            return test_dataset, None, default_collate
+        

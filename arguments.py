@@ -8,10 +8,10 @@ def get_arguments():
 
     # Dataset config
     parser.add_argument('--dataset_name', type=str, default='UTKFace', help="Name of the dataset")
-    parser.add_argument('--dataset_path', type=str, default='py97/UTKFace-Cropped', help="Path to the dataset")
-    parser.add_argument('--dataset_split_ratio', type=float, nargs=3, default=[0.8, 0.1, 0.1], help="Train/Val/Test split ratio")
-    parser.add_argument('--gender_classes', type=str, nargs=2, default=['Man', 'Woman'], help="Gender class names")
-    parser.add_argument('--race_classes', type=str, nargs=5, default=['White', 'Black', 'Asian', 'Indian', 'Others'], help="Race class names")
+    parser.add_argument('--utkface_split_ratio', type=float, nargs=3, default=[0.7, 0.15, 0.15], help="UTKFace Train/Val/Test split ratio")
+    parser.add_argument('--fairface_split_ratio', type=float, nargs=2, default=[0.85, 0.15], help="FairFace Train/Val split ratio")
+    # parser.add_argument('--gender_classes', type=str, nargs=2, default=['Man', 'Woman'], help="Gender class names")
+    # parser.add_argument('--race_classes', type=str, nargs=5, default=['White', 'Black', 'Asian', 'Indian', 'Others'], help="Race class names")
 
     # Data Augmentation
     parser.add_argument('--train_transform_type', type=str, default='strong', choices=['strong', 'weak'], help="Training augmentation strategy")

@@ -1,7 +1,14 @@
 from src.model.debiasing_models import CLIP_Model, CV_Model
 
 def get_model(args, device):
-    clip = CLIP_Model(args, device)
-    resnet = CV_Model(args)
+    if args.dataset_name == "UTKFace":
+        num_classes = [2, 5] # [Gender, Race]
+        clip = CLIP_Model(num_classes, args, device)
+        resnet = CV_Model(num_classes, args)
+
+    elif args.dataset_name == "FairFace":
+        num_classes = [2, 7] # [Gender, Race]
+        clip = CLIP_Model(num_classes, args, device)
+        resnet = CV_Model(num_classes, args)
 
     return clip, resnet
