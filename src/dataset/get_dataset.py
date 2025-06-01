@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 from datasets import load_dataset, Dataset, Image
 
 from src.dataset.get_transforms import get_transforms
-from src.dataset.UTKFace import UTKFace_Dataset
+from src.dataset.UTKFace import UTKFaceDataset
 from src.dataset.FairFace import FairFaceDataset
 
 def get_dataset(args):
@@ -44,12 +44,12 @@ def get_dataset(args):
         test_data = Dataset.from_pandas(test_df.reset_index(drop=True))
         
         if args.is_train:
-            train_dataset = UTKFace_Dataset(train_data, transform=train_transforms)
-            valid_dataset = UTKFace_Dataset(valid_data, transform=test_transforms)
+            train_dataset = UTKFaceDataset(train_data, transform=train_transforms)
+            valid_dataset = UTKFaceDataset(valid_data, transform=test_transforms)
             data_collator = default_collate
             return train_dataset, valid_dataset, data_collator
         else:
-            test_dataset = UTKFace_Dataset(test_data, transform=test_transforms)
+            test_dataset = UTKFaceDataset(test_data, transform=test_transforms)
             data_collator = default_collate
             return test_dataset, None, data_collator
 

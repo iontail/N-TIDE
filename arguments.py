@@ -7,11 +7,9 @@ def get_arguments():
     parser.add_argument('--seed', type=int, default=42, help="Random seed for reproducibility")
 
     # Dataset config
-    parser.add_argument('--dataset_name', type=str, default='UTKFace', help="Name of the dataset")
+    parser.add_argument('--dataset_name', type=str, choices=["UTKFace", "FairFace"], default='FairFace', help="Name of the dataset")
     parser.add_argument('--utkface_split_ratio', type=float, nargs=3, default=[0.7, 0.15, 0.15], help="UTKFace Train/Val/Test split ratio")
     parser.add_argument('--fairface_split_ratio', type=float, nargs=2, default=[0.85, 0.15], help="FairFace Train/Val split ratio")
-    # parser.add_argument('--gender_classes', type=str, nargs=2, default=['Man', 'Woman'], help="Gender class names")
-    # parser.add_argument('--race_classes', type=str, nargs=5, default=['White', 'Black', 'Asian', 'Indian', 'Others'], help="Race class names")
 
     # Data Augmentation
     parser.add_argument('--train_transform_type', type=str, default='strong', choices=['strong', 'weak'], help="Training augmentation strategy")
@@ -23,8 +21,8 @@ def get_arguments():
 
     # Train config
     parser.add_argument('--train_mode', type=str, choices=['baseline', 'offline_teacher', 'offline_student'], default='baseline', help="Training mode type")
-    parser.add_argument('--batch_size', type=int, default=64, help="Batch size for training")
-    parser.add_argument('--num_epochs', type=int, default=50, help="Number of training epochs")
+    parser.add_argument('--batch_size', type=int, default=128, help="Batch size for training")
+    parser.add_argument('--num_epochs', type=int, default=25, help="Number of training epochs")
     parser.add_argument('--bf16', action='store_true', help="Enable bfloat16 precision training")
 
     # -- CLIP model
@@ -35,10 +33,11 @@ def get_arguments():
     parser.add_argument('--c_eta_min', type=float, default=1e-6, help="Minimum LR for CLIP scheduler")
 
     # -- CV model
-    parser.add_argument('--m_optimizer', type=str, default='SGD', help="Optimizer for CV model")
+    parser.add_argument('--m_optimizer', type=str, default='AdamW', help="Optimizer for CV model")
     parser.add_argument('--m_scheduler', type=str, default='Cosine', help="Scheduler for CV model")
-    parser.add_argument('--m_learning_rate', type=float, default=1e-2, help="Learning rate for CV model")
-    parser.add_argument('--m_weight_decay', type=float, default=1e-4, help="Weight decay for CV model")
+    parser.add_argument('--m_backbone_lr', type=float, default=5e-5, help="Learning rate for CV model's backbone")
+    parser.add_argument('--m_head_lr', type=float, default=1e-3, help="Learning rate for CV model's head")
+    parser.add_argument('--m_weight_decay', type=float, default=1e-2, help="Weight decay for CV model")
     parser.add_argument('--m_eta_min', type=float, default=1e-5, help="Minimum LR for CV scheduler")
 
     # -- Etc
@@ -50,8 +49,8 @@ def get_arguments():
 
     # Loss Weights
     parser.add_argument('--gender_smoothing', type=float, default=0.1, help="Label smoothing factor for gender classification")
-    parser.add_argument('--race_smoothing', type=float, default=0.1, help="Label smoothing factor for race classification")
-    parser.add_argument('--b_lambda', type=float, default=0.5, help="Weight for Baseline (CV model) loss") 
+    parser.add_argument('--race_smoothing', type=float, default=0.2, help="Label smoothing factor for race classification")
+    parser.add_argument('--b_lambda', type=float, default=0.25, help="Weight for Baseline (CV model) loss") 
     parser.add_argument('--c_lambda', type=float, default=0.5, help="Weight for Teacher (CLIP model) loss")
     parser.add_argument('--m_lambda', type=float, default=0.5, help="Weight for Student (CV model) loss")
     parser.add_argument('--alpha', type=float, default=0.5, help="Weight for Online KD loss")

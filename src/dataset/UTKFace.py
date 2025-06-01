@@ -1,15 +1,16 @@
+import numpy as np
 import torch
 import io
 from PIL import Image
 
-class UTKFace_Dataset(torch.utils.data.Dataset):
+class UTKFaceDataset(torch.utils.data.Dataset):
     """
     Hugging Face UTKFace-Cropped Dataset.
         - "jpg.chip.jpg": PIL.Image
         - "__key__": string formatted as "[age]_[gender]_[race]_..."
     Returns (image, label) where label = [age, gender, race]
     """
-    def __init__(self, dataset, transform=None):
+    def __init__(self, dataset, transform):
         self.dataset = dataset
         self.transform = transform
 
@@ -24,11 +25,8 @@ class UTKFace_Dataset(torch.utils.data.Dataset):
         key =  sample["__key__"].split("/")[-1]
         age, gender, race = map(int, key.split('_')[:3])
 
+        image = self.transform(image)
         label = torch.tensor([age, gender, race], dtype=torch.long)
-
-        if self.transform:
-            image = self.transform(image)
-
         return image, label
 
 

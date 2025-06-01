@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 
 class FairFaceDataset(torch.utils.data.Dataset):
@@ -8,7 +9,7 @@ class FairFaceDataset(torch.utils.data.Dataset):
     Returns (image, label), where label = [age, gender, race]
     """
     
-    def __init__(self, dataset, transform=None):
+    def __init__(self, dataset, transform):
         self.dataset = dataset
         self.transform = transform
 
@@ -20,11 +21,8 @@ class FairFaceDataset(torch.utils.data.Dataset):
         image = sample["image"]
         age, gender, race = sample["age"], sample["gender"], sample["race"]
 
+        image = self.transform(image)
         label = torch.tensor([age, gender, race], dtype=torch.long)
-
-        if self.transform:
-            image = self.transform(image)
-
         return image, label
     
 if __name__ == "__main__":

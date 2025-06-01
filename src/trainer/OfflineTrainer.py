@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch.cuda.amp import autocast
 
 from src.utils.bias_metric import *
-from src.model.get_model import get_model
+from src.model.get_models import get_models
 
 class OfflineKDTrainer:
     def __init__(self, 
@@ -40,7 +40,7 @@ class OfflineKDTrainer:
         self.race_criterion = nn.CrossEntropyLoss(label_smoothing=self.args.race_smoothing)
 
         if self.model_type == 'student': 
-            self.clip_pretrained, _ = get_model(self.args, self.device)
+            self.clip_pretrained, _ = get_models(self.args, self.device)
             self.clip_pretrained.load_state_dict(torch.load("~~~~")['model'])
             self.clip_pretrained = self.clip_pretrained.to(device)
             self.clip_pretrained.eval()

@@ -11,7 +11,7 @@ import time
 
 from arguments import get_arguments
 from src.dataset.get_dataset import get_dataset
-from src.model.get_model import get_model
+from src.model.get_models import get_models
 from src.trainer.BasicTrainer import BasicTrainer
 from src.trainer.OfflineTrainer import OfflineKDTrainer
 # from src.trainer.OnlineTrainer import OnlineKDTrainer
@@ -42,20 +42,29 @@ def main(args):
         num_workers=num_workers, persistent_workers=True
     )
 
-    clip, model = get_model(args, device)
+    clip, model = get_models(args, device)
     clip, model = clip.to(device), model.to(device)
     if args.bf16:
         clip, model = clip.to(torch.bfloat16), model.to(torch.bfloat16)
 
     # Basline Train: Fine-tuning ResNet50 (pretrained on ImageNet)
     if args.train_mode == 'baseline':
-        run_name = f"N-TIDE_Baseline_{time.strftime('%m%d_%H%M%S')}"
+        run_name = f"Baseline_{time.strftime('%m%d_%H%M')}"
         if args.use_wandb:
             wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args)
 
-        optimizer = torch.optim.SGD(
-            model.parameters(), lr=args.m_learning_rate,
-            weight_decay=args.m_weight_decay, momentum=0.9, nesterov=True
+        backbone_params = []
+        head_params = []
+        for name, param in model.named_parameters():
+            if 'model.fc' in name or 'gender_head' in name or 'race_head' in name:
+                head_params.append(param)
+            else:
+                backbone_params.append(param)
+
+        optimizer = torch.optim.AdamW([
+            {'params': backbone_params, 'lr': args.m_backbone_lr},
+            {'params': head_params, 'lr': args.m_head_lr}
+        ], weight_decay=args.m_weight_decay
         )
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=args.num_epochs, eta_min=args.m_eta_min
@@ -69,7 +78,7 @@ def main(args):
         
     # Offline KD Train: Fine-tuning CLIP (Teacher model)
     elif args.train_mode == 'offline_teacher':
-        run_name = f"N-TIDE_Teacher_{time.strftime('%m%d_%H%M%S')}"
+        run_name = f"N-TIDE_Teacher_{time.strftime('%m%d_%H%M')}"
         if args.use_wandb:
             wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args)
 
@@ -89,7 +98,7 @@ def main(args):
 
     # Offline KD Train: Fine-tuning ResNet50 (Student model)
     elif args.train_mode == 'offline_student':
-        run_name = f"N-TIDE_Student_{time.strftime('%m%d_%H%M%S')}"
+        run_name = f"N-TIDE_Student_{time.strftime('%m%d_%H%M')}"
         if args.use_wandb:
             wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args)
 

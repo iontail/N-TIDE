@@ -40,8 +40,8 @@ class CLIP_Model(nn.Module):
             nn.Dropout(0.5),
             nn.Linear(args.feature_dim, args.feature_dim)
         )
-        self.gender_classifier = nn.Linear(args.feature_dim, gender_classes)
-        self.race_classifier = nn.Linear(args.feature_dim, race_classes)
+        self.gender_head = nn.Linear(args.feature_dim, gender_classes)
+        self.race_head = nn.Linear(args.feature_dim, race_classes)
         
         # Neutral-Text prompt: "A photo of [Neutral vector]"
         self.neutral_token = nn.Parameter(torch.randn(1, txt_in_dim)) # [1, D]
@@ -91,8 +91,8 @@ class CLIP_Model(nn.Module):
         fused_neutral = torch.cat([image_embedding, neutral_embed], dim=1)
         fused_neutral = self.fusion_mlp(fused_neutral) 
 
-        gender_logits = self.gender_classifier(fused_neutral)
-        race_logits = self.race_classifier(fused_neutral)
+        gender_logits = self.gender_head(fused_neutral)
+        race_logits = self.race_head(fused_neutral)
 
         return {
             'f_biased': fused_biased,
@@ -124,17 +124,22 @@ class CV_Model(nn.Module):
         self.model = models.resnet50(weights='IMAGENET1K_V2')
         self.model.fc = nn.Sequential(
             nn.Linear(self.model.fc.in_features, args.feature_dim),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(args.feature_dim, args.feature_dim)
+            nn.LayerNorm(args.feature_dim),
+            nn.ReLU()
         )
-        self.gender_classifier = nn.Linear(args.feature_dim, gender_classes)
-        self.race_classifier = nn.Linear(args.feature_dim, race_classes)
+        
+        self.gender_head = nn.Linear(args.feature_dim, gender_classes)
+        self.race_head = nn.Sequential(
+            nn.Linear(args.feature_dim, args.feature_dim // 2),
+            nn.LayerNorm(args.feature_dim // 2),
+            nn.ReLU(),
+            nn.Linear(args.feature_dim // 2, race_classes)
+        )
 
     def forward(self, x):
         features = self.model(x)
-        gender_logits = self.gender_classifier(features)
-        race_logits = self.race_classifier(features)
+        gender_logits = self.gender_head(features)
+        race_logits = self.race_head(features)
 
         return {
             'features': features,
