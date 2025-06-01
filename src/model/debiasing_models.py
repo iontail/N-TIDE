@@ -21,7 +21,7 @@ class CLIP_Model(nn.Module):
         self.fusion_mlp =  nn.Sequential(
             nn.Linear(img_out_dim + txt_out_dim, args.feature_dim),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(0.5),
             nn.Linear(args.feature_dim, args.feature_dim)
         )
         self.gender_classifier = nn.Linear(args.feature_dim, len(args.gender_classes))
@@ -95,7 +95,7 @@ class CV_Model(nn.Module):
         self.model.fc = nn.Sequential(
             nn.Linear(self.model.fc.in_features, args.feature_dim),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(0.5),
             nn.Linear(args.feature_dim, args.feature_dim)
         )
         self.gender_classifier = nn.Linear(args.feature_dim, len(args.gender_classes))

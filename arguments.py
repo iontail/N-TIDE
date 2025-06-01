@@ -42,7 +42,7 @@ def get_arguments():
     parser.add_argument('--m_eta_min', type=float, default=1e-5)
 
     parser.add_argument('--is_train', type=bool, default=True)
-    parser.add_argument('--use_wandb', type=bool, default=False)
+    parser.add_argument('--use_wandb', type=bool, default=True)
     parser.add_argument('--checkpoint_dir', type=str, default='./ckpt')
 
     # Loss Weights

@@ -5,7 +5,7 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn 
 import torch.nn.functional as F
-from torch.cuda.amp import autocast
+from torch.amp import autocast
 
 from src.utils.bias_metric import *
 
@@ -36,7 +36,7 @@ class BasicTrainer:
         images, labels = images.to(self.device), labels.to(self.device)
         gender_labels, race_labels = labels[:, 1], labels[:, 2] # labels: [Batch_size, 3] ->  [Age, Gender, Race]
 
-        with autocast('cuda', dtype=torch.bfloat16 if self.args.bf16 else torch.float32):
+        with autocast(device_type='cuda', dtype=torch.bfloat16 if self.args.bf16 else torch.float32):
             output = self.model(images)
 
             # Classification losses

@@ -48,7 +48,7 @@ class OnlineKDTrainer:
         images, labels = images.to(self.device), labels.to(self.device)
         gender_labels, race_labels = labels[:, 1], labels[:, 2]
 
-        with autocast('cuda', dtype=torch.bfloat16 if self.args.bf16 else torch.float32):
+        with autocast(device_type='cuda', dtype=torch.bfloat16 if self.args.bf16 else torch.float32):
             clip_output = self.clip(images)
             model_output = self.model(images)
 
