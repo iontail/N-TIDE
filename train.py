@@ -11,9 +11,9 @@ import time
 from arguments import get_arguments
 from src.dataset.get_dataset import get_dataset
 from src.model.get_model import get_model
-from src.BasicTrainer import BasicTrainer
-from src.OfflineTrainer import OfflineKDTrainer
-from src.OnlineTrainer import OnlineKDTrainer
+from src.trainer.BasicTrainer import BasicTrainer
+from src.trainer.OfflineTrainer import OfflineKDTrainer
+from src.trainer.OnlineTrainer import OnlineKDTrainer
 
 def set_seed(seed):
     random.seed(seed)
