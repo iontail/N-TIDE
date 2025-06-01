@@ -36,9 +36,7 @@ class CLIP_Model(nn.Module):
 
         self.fusion_mlp =  nn.Sequential(
             nn.Linear(img_out_dim + txt_out_dim, args.feature_dim),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(args.feature_dim, args.feature_dim)
+            nn.ReLU()
         )
         self.gender_head = nn.Linear(args.feature_dim, gender_classes)
         self.race_head = nn.Linear(args.feature_dim, race_classes)
@@ -124,17 +122,10 @@ class CV_Model(nn.Module):
         self.model = models.resnet50(weights='IMAGENET1K_V2')
         self.model.fc = nn.Sequential(
             nn.Linear(self.model.fc.in_features, args.feature_dim),
-            nn.LayerNorm(args.feature_dim),
             nn.ReLU()
         )
-        
         self.gender_head = nn.Linear(args.feature_dim, gender_classes)
-        self.race_head = nn.Sequential(
-            nn.Linear(args.feature_dim, args.feature_dim // 2),
-            nn.LayerNorm(args.feature_dim // 2),
-            nn.ReLU(),
-            nn.Linear(args.feature_dim // 2, race_classes)
-        )
+        self.race_head = nn.Linear(args.feature_dim, race_classes)
 
     def forward(self, x):
         features = self.model(x)

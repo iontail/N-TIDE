@@ -17,11 +17,11 @@ def get_arguments():
     # Model config
     parser.add_argument('--clip_text_prompt', type=str, default='', help="Text prompt for CLIP model (Default: Null-text)")
     parser.add_argument('--clip_backbone', type=str, default='RN50', help="Backbone used in CLIP model's image encoder")
-    parser.add_argument('--feature_dim', type=int, default=512, help="Dimensionality of feature representation")
+    parser.add_argument('--feature_dim', type=int, default=128, help="Dimensionality of feature representation")
 
     # Train config
     parser.add_argument('--train_mode', type=str, choices=['baseline', 'offline_teacher', 'offline_student'], default='baseline', help="Training mode type")
-    parser.add_argument('--batch_size', type=int, default=128, help="Batch size for training")
+    parser.add_argument('--batch_size', type=int, default=64, help="Batch size for training")
     parser.add_argument('--num_epochs', type=int, default=25, help="Number of training epochs")
     parser.add_argument('--bf16', action='store_true', help="Enable bfloat16 precision training")
 
@@ -50,10 +50,9 @@ def get_arguments():
     # Loss Weights
     parser.add_argument('--gender_smoothing', type=float, default=0.1, help="Label smoothing factor for gender classification")
     parser.add_argument('--race_smoothing', type=float, default=0.2, help="Label smoothing factor for race classification")
-    parser.add_argument('--b_lambda', type=float, default=0.25, help="Weight for Baseline (CV model) loss") 
     parser.add_argument('--c_lambda', type=float, default=0.5, help="Weight for Teacher (CLIP model) loss")
     parser.add_argument('--m_lambda', type=float, default=0.5, help="Weight for Student (CV model) loss")
-    parser.add_argument('--alpha', type=float, default=0.5, help="Weight for Online KD loss")
+    parser.add_argument('--beta', type=float, default=0.8, help="Weight Between Gender and Race loss") 
 
 
     args = parser.parse_args()

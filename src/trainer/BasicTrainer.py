@@ -42,7 +42,7 @@ class BasicTrainer:
             # Classification losses
             cls_g_loss = self.gender_criterion(output['gender_logits'], gender_labels)
             cls_r_loss = self.race_criterion(output['race_logits'], race_labels)
-            total_loss = self.args.b_lambda* cls_g_loss + (1 - self.args.b_lambda) * cls_r_loss
+            total_loss = (1 - self.args.beta) * cls_g_loss + self.args.beta * cls_r_loss
 
         losses = {
             "total_loss": total_loss,

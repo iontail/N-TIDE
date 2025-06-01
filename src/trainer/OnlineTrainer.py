@@ -101,7 +101,7 @@ class OnlineKDTrainer:
 
         for batch_idx, batch in enumerate(tqdm(self.train_loader, desc=f"Epoch {epoch+1}/{self.num_epochs}", leave=False)):
             losses, _ = self.compute_losses(batch)
-            loss = self.args.alpha * losses['clip_loss'] + (1-self.args.alpha) * losses['model_loss'] 
+            loss = losses['clip_loss'] + losses['model_loss'] 
 
             self.m_optimizer.zero_grad()
             self.c_optimizer.zero_grad()

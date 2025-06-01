@@ -11,10 +11,20 @@ def get_transforms(args):
         std = [0.26862954, 0.26130258, 0.27577711]
 
     if args.train_transform_type == 'strong':
+        # train_transforms = transforms.Compose([
+        #     transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
+        #     transforms.RandomHorizontalFlip(p=0.5),
+        #     transforms.RandAugment(num_ops=2, magnitude=9),
+        #     transforms.ToTensor(),
+        #     transforms.Normalize(mean=mean, std=std),
+        #     transforms.RandomErasing(p=0.5),
+        # ])
         train_transforms = transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
+            transforms.RandomResizedCrop(224, scale=(0.7, 1.0)),
             transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandAugment(num_ops=2, magnitude=9),
+            transforms.RandomRotation(degrees=15),
+            transforms.ColorJitter(brightness=0.25, contrast=0.25, saturation=0.25, hue=0.05),
+            transforms.RandomApply([transforms.GaussianBlur(kernel_size=5)], p=0.5),
             transforms.ToTensor(),
             transforms.Normalize(mean=mean, std=std),
             transforms.RandomErasing(p=0.5),
