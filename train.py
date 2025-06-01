@@ -49,8 +49,8 @@ def main(args):
 
     # Basline Train: Fine-tuning ResNet50 (pretrained on ImageNet)
     if args.train_mode == 'baseline':
+        run_name = f"N-TIDE_Baseline_{time.strftime('%m%d_%H%M%S')}"
         if args.use_wandb:
-            run_name = f"N-TIDE_Baseline_{time.strftime('%m%d_%H%M%S')}"
             wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args)
 
         optimizer = torch.optim.SGD(
@@ -64,12 +64,13 @@ def main(args):
             model=model, 
             train_loader=train_loader, val_loader=val_loader,
             optimizer=optimizer, scheduler=scheduler, 
-            device=device, args=args
+            device=device, args=args, run_name=run_name
         )
+        
     # Offline KD Train: Fine-tuning CLIP (Teacher model)
     elif args.train_mode == 'offline_teacher':
+        run_name = f"N-TIDE_Teacher_{time.strftime('%m%d_%H%M%S')}"
         if args.use_wandb:
-            run_name = f"N-TIDE_Teacher_{time.strftime('%m%d_%H%M%S')}"
             wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args)
 
         optimizer = torch.optim.AdamW(
@@ -83,13 +84,13 @@ def main(args):
             model=clip, model_type='teacher',
             train_loader=train_loader, val_loader=val_loader,
             optimizer=optimizer, scheduler=scheduler,
-            device=device, args=args
+            device=device, args=args, run_name=run_name
         )
 
     # Offline KD Train: Fine-tuning ResNet50 (Student model)
     elif args.train_mode == 'offline_student':
+        run_name = f"N-TIDE_Student_{time.strftime('%m%d_%H%M%S')}"
         if args.use_wandb:
-            run_name = f"N-TIDE_Student_{time.strftime('%m%d_%H%M%S')}"
             wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args)
 
         optimizer = torch.optim.SGD(
@@ -103,7 +104,7 @@ def main(args):
             model=model, model_type='student',
             train_loader=train_loader, val_loader=val_loader,
             optimizer=optimizer, scheduler=scheduler,
-            device=device, args=args
+            device=device, args=args, run_name=run_name
         )
 
     trainer.train()

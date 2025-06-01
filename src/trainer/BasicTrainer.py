@@ -11,7 +11,7 @@ from src.utils.bias_metric import *
 
 class BasicTrainer:
     def __init__(self, model, train_loader,val_loader,
-                 optimizer, scheduler, device, args,):
+                 optimizer, scheduler, device, args, run_name):
         self.args = args
         self.device = device
 
@@ -25,7 +25,7 @@ class BasicTrainer:
 
         self.num_epochs = self.args.num_epochs
 
-        self.checkpoint_dir = self.args.checkpoint_dir
+        self.checkpoint_dir = os.path.join(self.args.checkpoint_dir, run_name)
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
         self.gender_criterion = nn.CrossEntropyLoss(label_smoothing=self.args.gender_smoothing)

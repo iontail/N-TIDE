@@ -51,6 +51,7 @@ def get_arguments():
     # Loss Weights
     parser.add_argument('--gender_smoothing', type=float, default=0.1, help="Label smoothing factor for gender classification")
     parser.add_argument('--race_smoothing', type=float, default=0.1, help="Label smoothing factor for race classification")
+    parser.add_argument('--b_lambda', type=float, default=0.5, help="Weight for Baseline (CV model) loss") 
     parser.add_argument('--c_lambda', type=float, default=0.5, help="Weight for Teacher (CLIP model) loss")
     parser.add_argument('--m_lambda', type=float, default=0.5, help="Weight for Student (CV model) loss")
     parser.add_argument('--alpha', type=float, default=0.5, help="Weight for Online KD loss")
