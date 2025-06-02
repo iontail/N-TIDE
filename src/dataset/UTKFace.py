@@ -33,20 +33,20 @@ class UTKFaceDataset(torch.utils.data.Dataset):
 if __name__ == "__main__":
     from datasets import load_dataset, Dataset
     from sklearn.model_selection import train_test_split
+    import torchvision.transforms as transforms
     import matplotlib.pyplot as plt
 
     def class_distribution(df, name):
-        print(f"\n-- {name} set:")
-
-        gender_dist = df["gender"].value_counts(normalize=True).sort_index()
-        print("Gender distribution:")
-        for idx, ratio in gender_dist.items():
-            print(f"{idx}: {ratio:.4f}")
-
+        print(f"\n-- {name} set, Race and gender distribution:")
         race_dist = df["race"].value_counts(normalize=True).sort_index()
-        print("Race distribution:")
-        for idx, ratio in race_dist.items():
-            print(f"{idx}: {ratio:.4f}")
+
+        for race, race_ratio in race_dist.items():
+            print(f"Race {race}: {race_ratio:.4f}")
+            sub_df = df[df["race"] == race]
+            gender_dist = sub_df["gender"].value_counts(normalize=True).sort_index()
+
+            for gender, gender_ratio in gender_dist.items():
+                print(f"  Gender {gender}: {gender_ratio:.4f}")
 
     full_train_data = load_dataset("py97/UTKFace-Cropped", split='train')
     full_train_data = full_train_data.filter(
@@ -67,8 +67,14 @@ if __name__ == "__main__":
     class_distribution(val_df, "Validation")
     class_distribution(test_df, "Test")
 
+    print(f"\nTrain set size: {len(train_df)}")
+    print(f"Validation set size: {len(val_df)}")
+    print(f"Test set size: {len(test_df)}")
+
     train_data = Dataset.from_pandas(train_df.reset_index(drop=True))
-    train_data = UTKFace_Dataset(train_data)
+
+    transform = transforms.Compose([transforms.Resize((224, 224))])
+    train_data = UTKFaceDataset(train_data, transform)
 
     image, label = train_data[0]
     plt.imshow(image)

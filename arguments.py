@@ -8,8 +8,16 @@ def get_arguments():
 
     # Dataset config
     parser.add_argument('--dataset_name', type=str, choices=["UTKFace", "FairFace"], default='FairFace', help="Name of the dataset")
+
+    # -- UTKFace
     parser.add_argument('--utkface_split_ratio', type=float, nargs=3, default=[0.7, 0.15, 0.15], help="UTKFace Train/Val/Test split ratio")
+    parser.add_argument('--utkface_race_class', type=str, nargs=5, default=['White', 'Black', 'Asian', 'Indian', 'Others'], help="Race classes of UTKFace dataset (ordered by label indices)")
+    
+    # -- FairFace
     parser.add_argument('--fairface_split_ratio', type=float, nargs=2, default=[0.85, 0.15], help="FairFace Train/Val split ratio")
+    parser.add_argument('--fairface_race_class', type=str, nargs=7, default=['East Asian', 'Indian', 'Black', 'White', 'Middle Eastern', 'Latino_Hispanic', 'Southeast Asian'], help="Race classes of FairFace dataset (ordered by label indices)")
+    parser.set_defaults(is_fairface_race_7=True)
+    parser.add_argument('--is_fairface_race_4', dest='is_fairface_race_7', action='store_false', help='Use 4-class FairFace race classes')
 
     # Data Augmentation
     parser.add_argument('--train_transform_type', type=str, default='strong', choices=['strong', 'weak'], help="Training augmentation strategy")
@@ -17,7 +25,7 @@ def get_arguments():
     # Model config
     parser.add_argument('--clip_text_prompt', type=str, default='', help="Text prompt for CLIP model (Default: Null-text)")
     parser.add_argument('--clip_backbone', type=str, default='RN50', help="Backbone used in CLIP model's image encoder")
-    parser.add_argument('--feature_dim', type=int, default=128, help="Dimensionality of feature representation")
+    parser.add_argument('--feature_dim', type=int, default=512, help="Dimensionality of feature representation")
 
     # Train config
     parser.add_argument('--train_mode', type=str, choices=['baseline', 'offline_teacher', 'offline_student'], default='baseline', help="Training mode type")
@@ -52,7 +60,7 @@ def get_arguments():
     parser.add_argument('--race_smoothing', type=float, default=0.2, help="Label smoothing factor for race classification")
     parser.add_argument('--c_lambda', type=float, default=0.5, help="Weight for Teacher (CLIP model) loss")
     parser.add_argument('--m_lambda', type=float, default=0.5, help="Weight for Student (CV model) loss")
-    parser.add_argument('--beta', type=float, default=0.8, help="Weight Between Gender and Race loss") 
+    parser.add_argument('--beta', type=float, default=0.75, help="Weight Between Gender and Race loss") 
 
 
     args = parser.parse_args()

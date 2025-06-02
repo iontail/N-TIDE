@@ -10,7 +10,7 @@ from torch.amp import autocast
 from src.utils.bias_metric import *
 
 class BasicTrainer:
-    def __init__(self, model, train_loader,val_loader,
+    def __init__(self, model, train_loader, val_loader,
                  optimizer, scheduler, device, args, run_name):
         self.args = args
         self.device = device
@@ -25,6 +25,7 @@ class BasicTrainer:
 
         self.num_epochs = self.args.num_epochs
 
+        self.run_name = run_name
         self.checkpoint_dir = os.path.join(self.args.checkpoint_dir, run_name)
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
@@ -143,15 +144,19 @@ class BasicTrainer:
         return eval_results
 
     def save_checkpoint(self, epoch):
+        checkpoint_path = os.path.join(self.checkpoint_dir, f"Base_ResNet50_E{epoch}.pt")
         checkpoint = {
             "epoch": epoch,
             "model": self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
         }
-
-        torch.save(checkpoint, os.path.join(self.checkpoint_dir, f"Base_ResNet50_E{epoch}.pt"))
+        torch.save(checkpoint, checkpoint_path)
+        return checkpoint_path  
 
     def train(self):
+        if self.args.use_wandb:
+            artifact = wandb.Artifact(name=self.run_name, type="model")
+
         for epoch in range(self.num_epochs):
             train_results, eval_results = self.train_epoch(epoch)
 
@@ -166,6 +171,9 @@ class BasicTrainer:
                     'epoch/eval_race_acc': eval_results['eval_race_acc']
                 })
 
-            if (epoch + 1) % 5 == 0:
-                self.save_checkpoint(epoch + 1)
-        self.save_checkpoint(self.num_epochs)
+            if (epoch + 1) % 5 == 0 or (epoch + 1) == self.num_epochs:
+                checkpoint_path = self.save_checkpoint(epoch + 1)
+                if self.args.use_wandb:
+                    artifact.add_file(checkpoint_path)
+        if self.args.use_wandb:
+            wandb.log_artifact(artifact)

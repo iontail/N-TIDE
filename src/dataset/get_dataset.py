@@ -61,12 +61,17 @@ def get_dataset(args):
         test_data = load_dataset("HuggingFaceM4/FairFace", "0.25", split='validation')
 
         df = full_train_data.to_pandas()
+        test_df = test_data.to_pandas()
+
+        if not args.is_fairface_race_7:
+            df = df[df["race"].isin([0, 1, 2, 3])]
+            test_df = test_df[test_df["race"].isin([0, 1, 2, 3])]
+
         train_df, val_df = train_test_split(df, test_size=valid_ratio, stratify=df["race"], random_state=42)
 
-        train_data = Dataset.from_pandas(train_df.reset_index(drop=True))
-        train_data = train_data.cast_column("image", Image())
-        valid_data = Dataset.from_pandas(val_df.reset_index(drop=True))
-        valid_data = valid_data.cast_column("image", Image())
+        train_data = Dataset.from_pandas(train_df.reset_index(drop=True)).cast_column("image", Image())
+        valid_data = Dataset.from_pandas(val_df.reset_index(drop=True)).cast_column("image", Image())
+        test_data  = Dataset.from_pandas(test_df.reset_index(drop=True)).cast_column("image", Image())
 
         if args.is_train:
             train_dataset = FairFaceDataset(train_data, transform=train_transforms)

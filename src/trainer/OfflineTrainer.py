@@ -11,15 +11,8 @@ from src.utils.bias_metric import *
 from src.model.get_models import get_models
 
 class OfflineKDTrainer:
-    def __init__(self, 
-                 model, 
-                 model_type,
-                 train_loader,
-                 val_loader,
-                 optimizer,
-                 scheduler,
-                 device,
-                 args):
+    def __init__(self, model, model_type, train_loader, val_loader,
+                 optimizer, scheduler, device, args, run_name):
         self.args = args
         self.device = device
         
@@ -33,6 +26,7 @@ class OfflineKDTrainer:
 
         self.num_epochs = self.args.num_epochs
 
+        self.run_name = run_name
         self.checkpoint_dir = os.path.join(self.args.checkpoint_dir, run_name)
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
@@ -63,8 +57,8 @@ class OfflineKDTrainer:
             }
 
             if self.model_type == 'teacher':
-                # Alignment loss: neutral embeddings <-> bias-included text embeddings (MSE)
-                align_loss = F.mse_loss(output['f_neutral'], output['f_biased'].detach())
+                # Alignment loss: neutral embeddings <-> null text embeddings (MSE)
+                align_loss = F.mse_loss(output['f_neutral'], output['f_null'].detach())
                 losses["feature_loss"] = align_loss
                 losses["total_loss"] = (1 - self.args.c_lambda) * (cls_g_loss + cls_r_loss) + self.args.c_lambda * align_loss
 
@@ -171,15 +165,21 @@ class OfflineKDTrainer:
         return eval_results
 
     def save_checkpoint(self, epoch):
+        checkpoint_path = os.path.join(self.checkpoint_dir, f"N-TIDE_{self.model_type}_E{epoch}.pt")
         checkpoint = {
             "epoch": epoch,
             "model": self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
         }
 
-        torch.save(checkpoint, os.path.join(self.checkpoint_dir, f"N-TIDE_{self.model_type}_E{epoch}.pt"))
+        torch.save(checkpoint, checkpoint_path)
+        return checkpoint_path  
+
 
     def train(self):
+        if self.args.use_wandb:
+            artifact = wandb.Artifact(name=self.run_name, type="model")
+
         for epoch in range(self.num_epochs):
             train_results, eval_results = self.train_epoch(epoch)
 
@@ -194,6 +194,9 @@ class OfflineKDTrainer:
                     'epoch/eval_race_acc': eval_results['eval_race_acc']
                 })
 
-            if (epoch + 1) % 5 == 0:
+            if (epoch + 1) % 5 == 0 or (epoch + 1) == self.num_epochs:
                 self.save_checkpoint(epoch + 1)
-        self.save_checkpoint(self.num_epochs)
+                if self.args.use_wandb:
+                    artifact.add_file(checkpoint_path)
+        if self.args.use_wandb:
+            wandb.log_artifact(artifact)

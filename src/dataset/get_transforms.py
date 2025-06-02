@@ -20,16 +20,14 @@ def get_transforms(args):
         #     transforms.RandomErasing(p=0.5),
         # ])
         train_transforms = transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=(0.7, 1.0)),
+            transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
             transforms.RandomHorizontalFlip(p=0.5),
 
-            # transforms.RandomRotation(degrees=15),
             transforms.ColorJitter(brightness=0.25, contrast=0.25, saturation=0.25, hue=0.05),
-            # transforms.RandomApply([transforms.GaussianBlur(kernel_size=5)], p=0.5),
+            transforms.RandomApply([transforms.GaussianBlur(kernel_size=5)], p=0.3),
 
-            transforms.RandomAffine(degrees=10, translate=(0.05, 0.05), scale=(0.9, 1.1), shear=5, fill=0),
-            transforms.RandomPerspective(distortion_scale=0.3, p=0.5),
-            transforms.RandomEqualize(p=0.3),
+            transforms.RandomApply([transforms.RandomRotation(degrees=10)], p=0.3),
+            transforms.RandomPerspective(distortion_scale=0.2, p=0.3),
 
             transforms.ToTensor(),
             transforms.Normalize(mean=mean, std=std),

@@ -44,8 +44,6 @@ def main(args):
 
     clip, model = get_models(args, device)
     clip, model = clip.to(device), model.to(device)
-    if args.bf16:
-        clip, model = clip.to(torch.bfloat16), model.to(torch.bfloat16)
 
     # Basline Train: Fine-tuning ResNet50 (pretrained on ImageNet)
     if args.train_mode == 'baseline':
