@@ -3,6 +3,10 @@ import pandas as pd
 import itertools
 from sklearn.metrics import accuracy_score, recall_score
 
+# ===============
+#    수정 필요   
+# ===============
+
 # UTKFace race index to label mapping
 RACE_ID_TO_LABEL = {
     0: 'White',

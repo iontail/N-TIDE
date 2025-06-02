@@ -18,6 +18,10 @@ def set_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
+
+# ===============
+#    수정 필요   
+# ===============
 def main(args): 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
@@ -44,16 +48,12 @@ def main(args):
     model_preds = []
      
     with torch.no_grad():
-        for images in tqdm(test_loader, desc='Inference'):
-            images = images.to(device)
+        for images, labels in tqdm(test_loader, desc='Inference'):
+            images, labels = images.to(self.device), labels.to(self.device)
+            gender_labels, race_labels = labels[:, 1], labels[:, 2]
 
             # CLIP
-            clip_g_logits, clip_r_logits, _ = clip(images)
-            clip_preds.append(torch.cat([clip_g_logits, clip_r_logits], dim=1).cpu().numpy())
-
             # CV Model
-            model_g_logits, model_r_logits, _ = model(images)
-            model_preds.append(torch.cat([model_g_logits, model_r_logits], dim=1).cpu().numpy())
 
     clip_preds = np.concatenate(clip_preds, axis=0)
     model_preds = np.concatenate(model_preds, axis=0)
