@@ -30,7 +30,7 @@ def get_arguments():
     # Train config
     parser.add_argument('--train_mode', type=str, choices=['baseline', 'offline_teacher', 'offline_student'], default='baseline', help="Training mode type")
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size for training")
-    parser.add_argument('--num_epochs', type=int, default=30, help="Number of training epochs")
+    parser.add_argument('--num_epochs', type=int, default=25, help="Number of training epochs")
     parser.add_argument('--bf16', action='store_true', help="Enable bfloat16 precision training")
 
     # -- CLIP model
@@ -57,7 +57,7 @@ def get_arguments():
 
     # Loss Weights
     parser.add_argument('--gender_smoothing', type=float, default=0.0, help="Label smoothing factor for gender classification")
-    parser.add_argument('--race_smoothing', type=float, default=0.15, help="Label smoothing factor for race classification")
+    parser.add_argument('--race_smoothing', type=float, default=0.2, help="Label smoothing factor for race classification")
     parser.add_argument('--c_lambda', type=float, default=0.5, help="Weight for Teacher (CLIP model) loss")
     parser.add_argument('--m_lambda', type=float, default=0.5, help="Weight for Student (CV model) loss")
     parser.add_argument('--beta', type=float, default=0.75, help="Weight Between Gender and Race loss") 
