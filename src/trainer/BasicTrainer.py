@@ -15,59 +15,49 @@ class BasicTrainer:
         self.args = args
         self.device = device
 
-        self.model = model
-
         self.train_loader = train_loader
         self.val_loader = val_loader
 
+        self.num_epochs = self.args.num_epochs  
+
+        self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler
-
-        self.num_epochs = self.args.num_epochs
+        self.gender_criterion = nn.CrossEntropyLoss(label_smoothing=self.args.gender_smoothing)
+        self.race_criterion = nn.CrossEntropyLoss(label_smoothing=self.args.race_smoothing)
 
         self.run_name = run_name
         self.checkpoint_dir = os.path.join(self.args.checkpoint_dir, run_name)
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
-        self.gender_criterion = nn.CrossEntropyLoss(label_smoothing=self.args.gender_smoothing)
-        self.race_criterion = nn.CrossEntropyLoss(label_smoothing=self.args.race_smoothing)
-
     def compute_losses(self, batch):
         images, labels = batch
         images, labels = images.to(self.device), labels.to(self.device)
-        gender_labels, race_labels = labels[:, 1], labels[:, 2] # labels: [Batch_size, 3] ->  [Age, Gender, Race]
+        gender_labels, race_labels = labels[:, 1], labels[:, 2] # labels: [Age, Gender, Race]
 
         with autocast(device_type='cuda', dtype=torch.bfloat16 if self.args.bf16 else torch.float32):
-            output = self.model(images)
+            outputs = self.model(images)
 
             # Classification losses
-            cls_g_loss = self.gender_criterion(output['gender_logits'], gender_labels)
-            cls_r_loss = self.race_criterion(output['race_logits'], race_labels)
+            cls_g_loss = self.gender_criterion(outputs['gender_logits'], gender_labels)
+            cls_r_loss = self.race_criterion(outputs['race_logits'], race_labels)
             total_loss = (1 - self.args.beta) * cls_g_loss + self.args.beta * cls_r_loss
 
-        losses = {
-            "total_loss": total_loss,
-            "cls_gender_loss": cls_g_loss,
-            "cls_race_loss": cls_r_loss
-        }
+        losses = {}
+        losses["total_loss"] = total_loss
+        losses["cls_gender_loss"] = cls_g_loss
+        losses["cls_race_loss"] = cls_r_loss
+        return losses, outputs
 
-        logits = {
-            "model_gender": output["gender_logits"],
-            "model_race": output["race_logits"],
-        }
-
-        return losses, logits
-
-    def compute_accuracy(self, logits, labels):
+    def compute_accuracy(self, outputs, labels):
         gender_labels = labels[:, 1].to(self.device)
         race_labels = labels[:, 2].to(self.device)
 
-        gender_preds = logits['model_gender'].argmax(dim=1)
-        race_preds = logits['model_race'].argmax(dim=1)
+        gender_preds = outputs['gender_logits'].argmax(dim=1)
+        race_preds = outputs['race_logits'].argmax(dim=1)
 
         gender_correct = (gender_preds == gender_labels).sum().item()
         race_correct = (race_preds == race_labels).sum().item()
-
         return gender_correct, race_correct
 
     def train_epoch(self, epoch):
@@ -76,7 +66,7 @@ class BasicTrainer:
         gender_correct, race_correct, total = 0, 0, 0
 
         for batch_idx, batch in enumerate(tqdm(self.train_loader, desc=f"Epoch {epoch+1}/{self.num_epochs}", leave=False)):
-            losses, logits = self.compute_losses(batch)
+            losses, outputs = self.compute_losses(batch)
             loss = losses['total_loss']
 
             self.optimizer.zero_grad()
@@ -85,11 +75,10 @@ class BasicTrainer:
 
             train_loss += loss.item()
 
-            # Accuracy
             _, labels = batch
-            g_corr, r_corr = self.compute_accuracy(logits, labels)
-            gender_correct += g_corr
-            race_correct += r_corr
+            g_correct, r_correct = self.compute_accuracy(outputs, labels)
+            gender_correct += g_correct
+            race_correct += r_correct
             total += labels.size(0)
 
             if self.args.use_wandb and (batch_idx % 10 == 0):
@@ -102,18 +91,13 @@ class BasicTrainer:
 
         self.scheduler.step()
 
-        train_loss /= len(self.train_loader)
-        train_gender_acc = gender_correct / total
-        train_race_acc = race_correct / total
+        train_log = {}
+        train_log["train_loss"] = train_loss / len(self.train_loader)
+        train_log["train_gender_acc"] = gender_correct / total
+        train_log["train_race_acc"] = race_correct / total
 
-        train_results = {
-            'train_loss': train_loss,
-            'train_gender_acc': train_gender_acc,
-            'train_race_acc': train_race_acc
-        }
-
-        eval_results = self.evaluate()
-        return train_results, eval_results
+        eval_log = self.evaluate()
+        return train_log, eval_log
 
     def evaluate(self):
         self.model.eval()
@@ -122,34 +106,29 @@ class BasicTrainer:
 
         with torch.no_grad():
             for batch in tqdm(self.val_loader, desc="Evaluation", leave=False):
-                losses, logits = self.compute_losses(batch)
+                losses, outputs = self.compute_losses(batch)
                 eval_loss += losses['total_loss'].item()
 
                 _, labels = batch
-                g_corr, r_corr = self.compute_accuracy(logits, labels)
-                gender_correct += g_corr
-                race_correct += r_corr
+                g_correct, r_correct = self.compute_accuracy(outputs, labels)
+                gender_correct += g_correct
+                race_correct += r_correct
                 total += labels.size(0)
 
-        eval_loss /= len(self.val_loader)
-        gender_acc = gender_correct / total
-        race_acc = race_correct / total
-
-        eval_results = {
-            'eval_loss': eval_loss,
-            'eval_gender_acc': gender_acc,
-            'eval_race_acc': race_acc
-        }
-
-        return eval_results
+        eval_log = {}
+        eval_log["eval_loss"] = eval_loss / len(self.val_loader)
+        eval_log["eval_gender_acc"] = gender_correct / total
+        eval_log["eval_race_acc"] = race_correct / total
+        return eval_log
 
     def save_checkpoint(self, epoch):
-        checkpoint_path = os.path.join(self.checkpoint_dir, f"Base_ResNet50_E{epoch}.pt")
         checkpoint = {
             "epoch": epoch,
             "model": self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
         }
+
+        checkpoint_path = os.path.join(self.checkpoint_dir, f"Base_ResNet50_E{epoch}.pt")
         torch.save(checkpoint, checkpoint_path)
         return checkpoint_path  
 
@@ -158,22 +137,23 @@ class BasicTrainer:
             artifact = wandb.Artifact(name=self.run_name, type="model")
 
         for epoch in range(self.num_epochs):
-            train_results, eval_results = self.train_epoch(epoch)
+            train_log, eval_log = self.train_epoch(epoch)
 
             if self.args.use_wandb:
                 wandb.log({
                     "epoch": epoch + 1,
-                    "epoch/train_loss": train_results['train_loss'],
-                    "epoch/train_gender_acc": train_results['train_gender_acc'],
-                    "epoch/train_race_acc": train_results['train_race_acc'],
-                    'epoch/eval_loss': eval_results['eval_loss'],
-                    'epoch/eval_gender_acc': eval_results['eval_gender_acc'],
-                    'epoch/eval_race_acc': eval_results['eval_race_acc']
+                    "epoch/train_loss": train_log['train_loss'],
+                    "epoch/train_gender_acc": train_log['train_gender_acc'],
+                    "epoch/train_race_acc": train_log['train_race_acc'],
+                    'epoch/eval_loss': eval_log['eval_loss'],
+                    'epoch/eval_gender_acc': eval_log['eval_gender_acc'],
+                    'epoch/eval_race_acc': eval_log['eval_race_acc']
                 })
 
             if (epoch + 1) % 5 == 0 or (epoch + 1) == self.num_epochs:
                 checkpoint_path = self.save_checkpoint(epoch + 1)
                 if self.args.use_wandb:
                     artifact.add_file(checkpoint_path)
+
         if self.args.use_wandb:
             wandb.log_artifact(artifact)
