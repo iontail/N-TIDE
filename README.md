@@ -6,7 +6,7 @@
     ·
     <a>Jinho Jang</a>
     ·
-    <a>Sarang Han/a>
+    <a>Sarang Han</a>
   </p>
 
 
