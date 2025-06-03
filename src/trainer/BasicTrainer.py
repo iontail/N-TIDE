@@ -38,11 +38,14 @@ class BasicTrainer:
         with autocast(device_type='cuda', dtype=torch.bfloat16 if self.args.bf16 else torch.float32):
             outputs = self.model(images)
 
-            # Classification losses
+            # Classification Loss (Gender, Race)
             cls_g_loss = self.gender_criterion(outputs['gender_logits'], gender_labels)
             cls_r_loss = self.race_criterion(outputs['race_logits'], race_labels)
+
+            # Total Loss
             total_loss = self.args.lambda_g * cls_g_loss + self.args.lambda_r * cls_r_loss
 
+        # Logging 
         losses = {}
         losses["total_loss"] = total_loss
         losses["cls_gender_loss"] = cls_g_loss
@@ -66,6 +69,7 @@ class BasicTrainer:
         gender_correct, race_correct, total = 0, 0, 0
 
         for batch_idx, batch in enumerate(tqdm(self.train_loader, desc=f"Epoch {epoch+1}/{self.num_epochs}", leave=False)):
+            # Compute Losses
             losses, outputs = self.compute_losses(batch)
             loss = losses['total_loss']
 
@@ -75,12 +79,14 @@ class BasicTrainer:
 
             train_loss += loss.item()
 
+            # Compute Accuracy
             _, labels = batch
             g_correct, r_correct = self.compute_accuracy(outputs, labels)
             gender_correct += g_correct
             race_correct += r_correct
             total += labels.size(0)
-
+            
+            # Wandb Logging 
             if self.args.use_wandb and (batch_idx % 10 == 0):
                 wandb.log({
                     "step": epoch * len(self.train_loader) + batch_idx,
@@ -91,11 +97,13 @@ class BasicTrainer:
 
         self.scheduler.step()
 
+        # Logging
         train_log = {}
         train_log["train_loss"] = train_loss / len(self.train_loader)
         train_log["train_gender_acc"] = gender_correct / total
         train_log["train_race_acc"] = race_correct / total
 
+        # Validation
         eval_log = self.evaluate()
         return train_log, eval_log
 
@@ -106,15 +114,18 @@ class BasicTrainer:
 
         with torch.no_grad():
             for batch in tqdm(self.val_loader, desc="Evaluation", leave=False):
+                # Compute Losses 
                 losses, outputs = self.compute_losses(batch)
                 eval_loss += losses['total_loss'].item()
 
+                # Compute Accuracy 
                 _, labels = batch
                 g_correct, r_correct = self.compute_accuracy(outputs, labels)
                 gender_correct += g_correct
                 race_correct += r_correct
                 total += labels.size(0)
 
+        # Logging 
         eval_log = {}
         eval_log["eval_loss"] = eval_loss / len(self.val_loader)
         eval_log["eval_gender_acc"] = gender_correct / total
