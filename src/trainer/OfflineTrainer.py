@@ -58,7 +58,7 @@ class OfflineKDTrainer:
                 # Alignment loss: neutral embeddings <-> null text embeddings (MSE)
                 align_loss = F.mse_loss(outputs['f_neutral'], outputs['f_null'].detach())
                 losses["feature_loss"] = align_loss
-                losses["total_loss"] = (1 - self.args.c_lambda) * (cls_g_loss + cls_r_loss) + self.args.c_lambda * align_loss
+                losses["total_loss"] = self.args.lambda_g * cls_g_loss + self.args.lambda_r * cls_r_loss + self.args.lambda_t * align_loss
 
             elif self.model_type == 'student': 
                 # Knowledge distillation loss: CLIP's features <-> CV model's features (cosine similarity)
@@ -68,7 +68,7 @@ class OfflineKDTrainer:
                 cosine_sim = F.cosine_similarity(outputs["features"], clip_outputs["f_neutral"].detach(), dim=-1)
                 kd_loss = 1 - cosine_sim.mean()
                 losses["feature_loss"] = kd_loss
-                losses["total_loss"] = (1 - self.args.m_lambda) * (cls_g_loss + cls_r_loss) + self.args.m_lambda * kd_loss
+                losses["total_loss"] = self.args.lambda_g * cls_g_loss + self.args.lambda_r * cls_r_loss + self.args.lambda_s * kd_loss
             
         return losses, outputs
     

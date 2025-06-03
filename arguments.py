@@ -19,7 +19,7 @@ def get_arguments():
     parser.set_defaults(is_fairface_race_7=True)
     parser.add_argument('--is_fairface_race_4', dest='is_fairface_race_7', action='store_false', help='Use 4-class FairFace race classes')
 
-    # Data Augmentation
+    # -- Augmentation
     parser.add_argument('--train_transform_type', type=str, default='strong', choices=['strong', 'weak'], help="Training augmentation strategy")
 
     # Model config
@@ -44,9 +44,17 @@ def get_arguments():
     parser.add_argument('--m_optimizer', type=str, default='AdamW', help="Optimizer for CV model")
     parser.add_argument('--m_scheduler', type=str, default='Cosine', help="Scheduler for CV model")
     parser.add_argument('--m_backbone_lr', type=float, default=5e-5, help="Learning rate for CV model's backbone")
-    parser.add_argument('--m_head_lr', type=float, default=5e-4, help="Learning rate for CV model's head")
+    parser.add_argument('--m_head_lr', type=float, default=1e-3, help="Learning rate for CV model's head")
     parser.add_argument('--m_weight_decay', type=float, default=1e-2, help="Weight decay for CV model")
     parser.add_argument('--m_eta_min', type=float, default=1e-5, help="Minimum LR for CV scheduler")
+
+    # -- Loss
+    parser.add_argument('--gender_smoothing', type=float, default=0.1, help="Label smoothing factor for gender classification")
+    parser.add_argument('--race_smoothing', type=float, default=0.2, help="Label smoothing factor for race classification")
+    parser.add_argument('--lambda_g', type=float, default=1, help="Weight for Gender Classification loss")
+    parser.add_argument('--lambda_r', type=float, default=3, help="Weight for Race Classification loss") 
+    parser.add_argument('--lambda_t', type=float, default=2, help="Weight for Teacher loss, CLIP model's Align loss")
+    parser.add_argument('--lambda_s', type=float, default=2, help="Weight for Student loss, CV models' KD lss")
 
     # -- Etc
     parser.set_defaults(is_train=True)
@@ -54,14 +62,6 @@ def get_arguments():
     parser.set_defaults(use_wandb=True)
     parser.add_argument('--no_wandb', dest='use_wandb', action='store_false', help="Disable Wandb logging")
     parser.add_argument('--checkpoint_dir', type=str, default='./ckpt', help="Directory to save checkpoints")
-
-    # Loss Weights
-    parser.add_argument('--gender_smoothing', type=float, default=0.0, help="Label smoothing factor for gender classification")
-    parser.add_argument('--race_smoothing', type=float, default=0.2, help="Label smoothing factor for race classification")
-    parser.add_argument('--c_lambda', type=float, default=0.5, help="Weight for Teacher (CLIP model) loss")
-    parser.add_argument('--m_lambda', type=float, default=0.5, help="Weight for Student (CV model) loss")
-    parser.add_argument('--beta', type=float, default=0.75, help="Weight Between Gender and Race loss") 
-
 
     args = parser.parse_args()
     return args
