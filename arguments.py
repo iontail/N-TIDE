@@ -30,7 +30,7 @@ def get_arguments():
     # Train config
     parser.add_argument('--train_mode', type=str, choices=['baseline', 'offline_teacher', 'offline_student'], default='baseline', help="Training mode type")
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size for training")
-    parser.add_argument('--num_epochs', type=int, default=25, help="Number of training epochs")
+    parser.add_argument('--num_epochs', type=int, default=30, help="Number of training epochs")
     parser.add_argument('--bf16', action='store_true', help="Enable bfloat16 precision training")
 
     # -- CLIP model
@@ -44,7 +44,7 @@ def get_arguments():
     parser.add_argument('--m_optimizer', type=str, default='AdamW', help="Optimizer for CV model")
     parser.add_argument('--m_scheduler', type=str, default='Cosine', help="Scheduler for CV model")
     parser.add_argument('--m_backbone_lr', type=float, default=5e-5, help="Learning rate for CV model's backbone")
-    parser.add_argument('--m_head_lr', type=float, default=1e-3, help="Learning rate for CV model's head")
+    parser.add_argument('--m_head_lr', type=float, default=5e-4, help="Learning rate for CV model's head")
     parser.add_argument('--m_weight_decay', type=float, default=1e-2, help="Weight decay for CV model")
     parser.add_argument('--m_eta_min', type=float, default=1e-5, help="Minimum LR for CV scheduler")
 
@@ -56,8 +56,8 @@ def get_arguments():
     parser.add_argument('--checkpoint_dir', type=str, default='./ckpt', help="Directory to save checkpoints")
 
     # Loss Weights
-    parser.add_argument('--gender_smoothing', type=float, default=0.1, help="Label smoothing factor for gender classification")
-    parser.add_argument('--race_smoothing', type=float, default=0.2, help="Label smoothing factor for race classification")
+    parser.add_argument('--gender_smoothing', type=float, default=0.0, help="Label smoothing factor for gender classification")
+    parser.add_argument('--race_smoothing', type=float, default=0.15, help="Label smoothing factor for race classification")
     parser.add_argument('--c_lambda', type=float, default=0.5, help="Weight for Teacher (CLIP model) loss")
     parser.add_argument('--m_lambda', type=float, default=0.5, help="Weight for Student (CV model) loss")
     parser.add_argument('--beta', type=float, default=0.75, help="Weight Between Gender and Race loss") 
