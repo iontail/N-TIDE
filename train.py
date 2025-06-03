@@ -51,18 +51,9 @@ def main(args):
         if args.use_wandb:
             wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args)
 
-        backbone_params = []
-        head_params = []
-        for name, param in model.named_parameters():
-            if 'model.fc' in name or 'gender_head' in name or 'race_head' in name:
-                head_params.append(param)
-            else:
-                backbone_params.append(param)
-
-        optimizer = torch.optim.AdamW([
-            {'params': backbone_params, 'lr': args.m_backbone_lr},
-            {'params': head_params, 'lr': args.m_head_lr}
-        ], weight_decay=args.m_weight_decay
+        optimizer = torch.optim.AdamW(
+            model.parameters(), lr=args.m_learning_rate,
+            weight_decay=args.m_weight_decay
         )
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=args.num_epochs, eta_min=args.m_eta_min
@@ -100,9 +91,9 @@ def main(args):
         if args.use_wandb:
             wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args)
 
-        optimizer = torch.optim.SGD(
+        optimizer = torch.optim.AdamW(
             model.parameters(), lr=args.m_learning_rate,
-            weight_decay=args.m_weight_decay, momentum=0.9, nesterov=True
+            weight_decay=args.m_weight_decay
         )
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=args.num_epochs, eta_min=args.m_eta_min
