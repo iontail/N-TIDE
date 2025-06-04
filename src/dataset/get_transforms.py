@@ -25,9 +25,11 @@ def get_transforms(args):
         ])
     elif args.train_transform_type == 'weak':
         train_transforms = transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
-            transforms.RandomHorizontalFlip(p=0.5),
+            # transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
+            # transforms.RandomHorizontalFlip(p=0.5),
             # transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1),
+            transforms.Resize(224, interpolation=transforms.InterpolationMode.BICUBIC),
+            transforms.CenterCrop((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize(mean=mean, std=std)
         ])

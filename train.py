@@ -71,10 +71,15 @@ def main(args):
         if args.use_wandb:
             wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args)
 
-        optimizer = torch.optim.AdamW(
-            filter(lambda p: p.requires_grad, clip.parameters()), 
-            lr=args.c_learning_rate, weight_decay=args.c_weight_decay
+        # optimizer = torch.optim.AdamW(
+        #     filter(lambda p: p.requires_grad, clip.parameters()), 
+        #     lr=args.c_learning_rate, weight_decay=args.c_weight_decay
+        # )
+        optimizer = torch.optim.SGD(
+            filter(lambda p: p.requires_grad, clip.parameters()),
+            lr=args.c_learning_rate, weight_decay=args.c_weight_decay, momentum=0.9
         )
+
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, 
             T_max=args.num_epochs, eta_min=args.c_eta_min

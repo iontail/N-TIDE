@@ -20,7 +20,7 @@ def get_arguments():
     parser.add_argument('--is_fairface_race_4', dest='is_fairface_race_7', action='store_false', help='Use 4-class FairFace race classes')
 
     # -- Augmentation
-    parser.add_argument('--train_transform_type', type=str, default='strong', choices=['strong', 'weak'], help="Training augmentation strategy")
+    parser.add_argument('--train_transform_type', type=str, default='weak', choices=['strong', 'weak'], help="Training augmentation strategy")
 
     # Model config
     parser.add_argument('--clip_null_text', type=str, default='', help="Text prompt for CLIP model (Default: Null-text)")
@@ -28,13 +28,13 @@ def get_arguments():
     parser.add_argument('--feature_dim', type=int, default=512, help="Dimensionality of feature representation")
 
     # Train config
-    parser.add_argument('--train_mode', type=str, choices=['baseline', 'offline_teacher', 'offline_student'], default='baseline', help="Training mode type")
+    parser.add_argument('--train_mode', type=str, choices=['baseline', 'offline_teacher', 'offline_student'], default='offline_teacher', help="Training mode type")
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size for training")
     parser.add_argument('--num_epochs', type=int, default=25, help="Number of training epochs")
     parser.add_argument('--bf16', action='store_true', help="Enable bfloat16 precision training")
 
     # -- CLIP model
-    parser.add_argument('--c_optimizer', type=str, default='AdamW', help="Optimizer for CLIP model")
+    parser.add_argument('--c_optimizer', type=str, default='AdamW', help="Opti mizer for CLIP model")
     parser.add_argument('--c_scheduler', type=str, default='Cosine', help="Scheduler for CLIP model")
     parser.add_argument('--c_learning_rate', type=float, default=1e-3, help="Learning rate for CLIP model")
     parser.add_argument('--c_weight_decay', type=float, default=1e-5, help="Weight decay for CLIP model")
@@ -48,12 +48,12 @@ def get_arguments():
     parser.add_argument('--m_eta_min', type=float, default=1e-5, help="Minimum LR for CV scheduler")
 
     # -- Loss
-    parser.add_argument('--gender_smoothing', type=float, default=0.05, help="Label smoothing factor for gender classification")
-    parser.add_argument('--race_smoothing', type=float, default=0.2, help="Label smoothing factor for race classification")
+    parser.add_argument('--gender_smoothing', type=float, default=0, help="Label smoothing factor for gender classification")
+    parser.add_argument('--race_smoothing', type=float, default=0, help="Label smoothing factor for race classification")
     parser.add_argument('--lambda_g', type=float, default=1, help="Weight for Gender Classification loss")
     parser.add_argument('--lambda_r', type=float, default=2, help="Weight for Race Classification loss") 
-    parser.add_argument('--lambda_t', type=float, default=2, help="Weight for Teacher loss, CLIP model's Align loss")
-    parser.add_argument('--lambda_s', type=float, default=2, help="Weight for Student loss, CV models' KD lss")
+    parser.add_argument('--lambda_t', type=float, default=0, help="Weight for Teacher loss, CLIP model's Align loss")
+    parser.add_argument('--lambda_s', type=float, default=0, help="Weight for Student loss, CV models' KD lss")
 
     # -- Etc
     parser.set_defaults(is_train=True)

@@ -27,73 +27,54 @@ class CLIP_Model(nn.Module):
         gender_classes, race_classes = num_classes
 
         # CLIP (Freeze)
-        self.clip, _ = clip.load(args.clip_backbone, device=self.device) 
-        for param in self.clip.parameters():
+        self.model, _ = clip.load(args.clip_backbone, device=self.device) 
+        for param in self.model.parameters():
             param.requires_grad = False
 
         # Fuse MLP
-        self.fusion_mlp = nn.Sequential(
-            nn.Linear(self.clip.visual.output_dim + self.clip.text_projection.shape[1], args.feature_dim * 2),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(args.feature_dim * 2, args.feature_dim),
-            nn.ReLU()
-        )
+        # self.fusion_mlp = nn.Sequential(
+        #     nn.Linear(self.model.visual.output_dim + self.model.text_projection.shape[1], args.feature_dim * 2),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.2),
+        #     nn.Linear(args.feature_dim * 2, args.feature_dim),
+        #     nn.ReLU()
+        # )
         
         # Classification head
-        self.gender_head = nn.Linear(args.feature_dim, gender_classes)
-        self.race_head = nn.Linear(args.feature_dim, race_classes)
+        # self.gender_head = nn.Linear(args.feature_dim, gender_classes)
+        # self.race_head = nn.Linear(args.feature_dim, race_classes)
         
-        # Null-Text prompt: ""
-        with torch.no_grad():
-            tokens = clip.tokenize([args.clip_null_text]).to(self.device)
-            self.register_buffer("null_encoded", self.clip.encode_text(tokens))  
+        # # Null-Text prompt: ""
+        # with torch.no_grad():
+        #     tokens = clip.tokenize([args.clip_null_text]).to(self.device)
+        #     self.register_buffer("null_encoded", self.model.encode_text(tokens))  
              
-        # Neutral-Text prompt: "A photo of a [Neutral vector]"
-        with torch.no_grad():
-            tokens = clip.tokenize(["A photo of a neutral"]).to(device)
-            self.register_buffer("neutral_embed", self.clip.token_embedding(tokens))     
+        # # Neutral-Text prompt: "A photo of a [Neutral vector]"
+        # with torch.no_grad():
+        #     tokens = clip.tokenize(["A photo of a neutral"]).to(device)
+        #     self.register_buffer("neutral_embed", self.model.token_embedding(tokens))     
             
-        # Initialize [Neutral vector]
-        with torch.no_grad():
-            tokens = clip.tokenize(["A photo of a person"]).to(device)
-            token_embeds = self.clip.token_embedding(tokens)
-            init_vector = token_embeds[0, 1:6].mean(dim=0, keepdim=True)
-        self.neutral_vector = nn.Parameter(init_vector.clone())
-            
+        # # Initialize [Neutral vector]
+        # with torch.no_grad():
+        #     tokens = clip.tokenize(["A photo of a person"]).to(device)
+        #     token_embeds = self.model.token_embedding(tokens)
+        #     init_vector = token_embeds[0, 1:6].mean(dim=0, keepdim=True)
+        # self.neutral_vector = nn.Parameter(init_vector.clone())
+
+
+        self.fusion_mlp = nn.Identity()
+        self.gender_head = nn.Linear(self.model.visual.output_dim, gender_classes)
+        self.race_head = nn.Linear(self.model.visual.output_dim, race_classes)
+
 
     def forward(self, x):
-        B = x.size(0)
-        
         with torch.no_grad():
-            # Image Encode            
-            image_encoded = self.clip.encode_image(x) 
+            image_encoded = self.model.encode_image(x)
+            image_encoded = image_encoded / image_encoded.norm(dim=-1, keepdim=True)
             
-            # Null-text Encode 
-            null_encoded = self.null_encoded.expand(B, -1)
-            fused_null = torch.cat([image_encoded, null_encoded], dim=1)
-            # Null-text Fuse
-            fused_null = self.fusion_mlp(fused_null)
-            
-        # A photo of a Neutral -> A photo of a [Neutral vector]
-        neutral_embed = self.neutral_embed.expand(B, -1, -1).clone() # (B, 77, D)
-        neutral_embed[:, 5, :] = self.neutral_vector.expand(B, -1)    # "Neutral" index = 5
-        
-        # Neutral-text Encode
-        neutral_encoded = neutral_embed + self.clip.positional_embedding 
-        neutral_encoded = neutral_encoded.permute(1, 0, 2)
-        neutral_encoded = self.clip.transformer(neutral_encoded)
-        neutral_encoded = neutral_encoded.permute(1, 0, 2) 
-        neutral_encoded = self.clip.ln_final(neutral_encoded)
-        
-        neutral_encoded = neutral_encoded[:, 6, :] # EOS token          
-        neutral_encoded = torch.matmul(neutral_encoded, self.clip.text_projection)
+            fused_null = torch.zeros_like(fused_neutral)
 
-        # Neutral-text Fuse
-        fused_neutral = torch.cat([image_encoded, neutral_encoded], dim=1)
-        fused_neutral = self.fusion_mlp(fused_neutral) 
-        
-        # Classification Head
+        fused_neutral = self.fusion_mlp(image_encoded)
         gender_logits = self.gender_head(fused_neutral)
         race_logits = self.race_head(fused_neutral)
 
@@ -103,6 +84,48 @@ class CLIP_Model(nn.Module):
             'gender_logits': gender_logits,
             'race_logits': race_logits,
         }
+
+    # def forward(self, x):
+    #     B = x.size(0)
+        
+    #     with torch.no_grad():
+    #         # Image Encode            
+    #         image_encoded = self.model.encode_image(x) 
+            
+    #         # Null-text Encode 
+    #         null_encoded = self.null_encoded.expand(B, -1)
+    #         fused_null = torch.cat([image_encoded, null_encoded], dim=1)
+    #         # Null-text Fuse
+    #         fused_null = self.fusion_mlp(fused_null)
+            
+    #     # A photo of a Neutral -> A photo of a [Neutral vector]
+    #     neutral_embed = self.neutral_embed.expand(B, -1, -1).clone() # (B, 77, D)
+    #     neutral_embed[:, 5, :] = self.neutral_vector.expand(B, -1)    # "Neutral" index = 5
+        
+    #     # Neutral-text Encode
+    #     neutral_encoded = neutral_embed + self.model.positional_embedding 
+    #     neutral_encoded = neutral_encoded.permute(1, 0, 2)
+    #     neutral_encoded = self.model.transformer(neutral_encoded)
+    #     neutral_encoded = neutral_encoded.permute(1, 0, 2) 
+    #     neutral_encoded = self.model.ln_final(neutral_encoded)
+        
+    #     neutral_encoded = neutral_encoded[:, 6, :] # EOS token          
+    #     neutral_encoded = torch.matmul(neutral_encoded, self.model.text_projection)
+
+    #     # Neutral-text Fuse
+    #     fused_neutral = torch.cat([image_encoded, neutral_encoded], dim=1)
+    #     fused_neutral = self.fusion_mlp(fused_neutral) 
+
+    #     # Classification Head
+    #     gender_logits = self.gender_head(fused_neutral)
+    #     race_logits = self.race_head(fused_neutral)
+
+    #     return {
+    #         'f_null': fused_null,
+    #         'f_neutral': fused_neutral,
+    #         'gender_logits': gender_logits,
+    #         'race_logits': race_logits,
+    #     }
     
 
 class CV_Model(nn.Module):
