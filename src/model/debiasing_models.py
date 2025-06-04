@@ -26,14 +26,17 @@ class CLIP_Model(nn.Module):
         self.device = device
         gender_classes, race_classes = num_classes
 
-        # CLIP Freeze
+        # CLIP (Freeze)
         self.clip, _ = clip.load(args.clip_backbone, device=self.device) 
         for param in self.clip.parameters():
             param.requires_grad = False
 
         # Fuse MLP
         self.fusion_mlp = nn.Sequential(
-            nn.Linear(self.clip.visual.output_dim + self.clip.text_projection.shape[1], args.feature_dim),
+            nn.Linear(self.clip.visual.output_dim + self.clip.text_projection.shape[1], args.feature_dim * 2),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(args.feature_dim * 2, args.feature_dim),
             nn.ReLU()
         )
         
@@ -45,21 +48,20 @@ class CLIP_Model(nn.Module):
         with torch.no_grad():
             tokens = clip.tokenize([args.clip_null_text]).to(self.device)
             self.register_buffer("null_encoded", self.clip.encode_text(tokens))  
-            
-        
+             
         # Neutral-Text prompt: "A photo of a [Neutral vector]"
         with torch.no_grad():
             tokens = clip.tokenize(["A photo of a neutral"]).to(device)
             self.register_buffer("neutral_embed", self.clip.token_embedding(tokens))     
             
-        # [Neutral vector]"
+        # Initialize [Neutral vector]
         with torch.no_grad():
             tokens = clip.tokenize(["A photo of a person"]).to(device)
             token_embeds = self.clip.token_embedding(tokens)
             init_vector = token_embeds[0, 1:6].mean(dim=0, keepdim=True)
         self.neutral_vector = nn.Parameter(init_vector.clone())
             
-            
+
     def forward(self, x):
         B = x.size(0)
         

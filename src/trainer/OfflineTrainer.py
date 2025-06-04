@@ -33,7 +33,7 @@ class OfflineKDTrainer:
 
         if self.model_type == 'student': 
             self.teacher, _ = get_models(self.args, self.device)
-            self.teacher.load_state_dict(torch.load("~~~~")['model'])
+            self.teacher.load_state_dict(torch.load("# -- 수정 필요 -- #")['model'])
             self.teacher = self.teacher.to(device)
             self.teacher.eval()
 

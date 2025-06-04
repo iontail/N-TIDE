@@ -51,11 +51,12 @@ def main(args):
             wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args)
 
         optimizer = torch.optim.AdamW(
-            model.parameters(), lr=args.m_learning_rate,
-            weight_decay=args.m_weight_decay
+            model.parameters(), 
+            lr=args.m_learning_rate, weight_decay=args.m_weight_decay
         )
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=args.num_epochs, eta_min=args.m_eta_min
+            optimizer, 
+            T_max=args.num_epochs, eta_min=args.m_eta_min
         )
         trainer = BasicTrainer(
             model=model, 
@@ -71,11 +72,12 @@ def main(args):
             wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args)
 
         optimizer = torch.optim.AdamW(
-            clip.parameters(), lr=args.c_learning_rate,
-            weight_decay=args.c_weight_decay
+            filter(lambda p: p.requires_grad, clip.parameters()), 
+            lr=args.c_learning_rate, weight_decay=args.c_weight_decay
         )
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=args.num_epochs, eta_min=args.c_eta_min
+            optimizer, 
+            T_max=args.num_epochs, eta_min=args.c_eta_min
         )
         trainer = OfflineKDTrainer(
             model=clip, model_type='teacher',
@@ -91,11 +93,12 @@ def main(args):
             wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args)
 
         optimizer = torch.optim.AdamW(
-            model.parameters(), lr=args.m_learning_rate,
-            weight_decay=args.m_weight_decay
+            model.parameters(), 
+            lr=args.m_learning_rate, weight_decay=args.m_weight_decay
         )
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=args.num_epochs, eta_min=args.m_eta_min
+            optimizer, 
+            T_max=args.num_epochs, eta_min=args.m_eta_min
         )
         trainer = OfflineKDTrainer(
             model=model, model_type='student',
