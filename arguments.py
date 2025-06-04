@@ -23,7 +23,7 @@ def get_arguments():
     parser.add_argument('--train_transform_type', type=str, default='strong', choices=['strong', 'weak'], help="Training augmentation strategy")
 
     # Model config
-    parser.add_argument('--clip_text_prompt', type=str, default='', help="Text prompt for CLIP model (Default: Null-text)")
+    parser.add_argument('--clip_null_text', type=str, default='', help="Text prompt for CLIP model (Default: Null-text)")
     parser.add_argument('--clip_backbone', type=str, default='RN50', help="Backbone used in CLIP model's image encoder")
     parser.add_argument('--feature_dim', type=int, default=512, help="Dimensionality of feature representation")
 
@@ -36,9 +36,9 @@ def get_arguments():
     # -- CLIP model
     parser.add_argument('--c_optimizer', type=str, default='AdamW', help="Optimizer for CLIP model")
     parser.add_argument('--c_scheduler', type=str, default='Cosine', help="Scheduler for CLIP model")
-    parser.add_argument('--c_learning_rate', type=float, default=1e-4, help="Learning rate for CLIP model")
+    parser.add_argument('--c_learning_rate', type=float, default=1e-3, help="Learning rate for CLIP model")
     parser.add_argument('--c_weight_decay', type=float, default=1e-4, help="Weight decay for CLIP model")
-    parser.add_argument('--c_eta_min', type=float, default=1e-6, help="Minimum LR for CLIP scheduler")
+    parser.add_argument('--c_eta_min', type=float, default=1e-5, help="Minimum LR for CLIP scheduler")
 
     # -- CV model
     parser.add_argument('--m_optimizer', type=str, default='AdamW', help="Optimizer for CV model")

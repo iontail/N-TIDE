@@ -26,65 +26,72 @@ class CLIP_Model(nn.Module):
         self.device = device
         gender_classes, race_classes = num_classes
 
+        # CLIP Freeze
         self.clip, _ = clip.load(args.clip_backbone, device=self.device) 
-        for param in self.clip.parameters(): # CLIP freeze
+        for param in self.clip.parameters():
             param.requires_grad = False
-        
-        img_out_dim = self.clip.visual.output_dim
-        txt_in_dim = self.clip.token_embedding.weight.shape[1]
-        txt_out_dim = self.clip.text_projection.shape[1]
 
-        self.fusion_mlp =  nn.Sequential(
-            nn.Linear(img_out_dim + txt_out_dim, args.feature_dim),
+        # Fuse MLP
+        self.fusion_mlp = nn.Sequential(
+            nn.Linear(self.clip.visual.output_dim + self.clip.text_projection.shape[1], args.feature_dim),
             nn.ReLU()
         )
+        
+        # Classification head
         self.gender_head = nn.Linear(args.feature_dim, gender_classes)
         self.race_head = nn.Linear(args.feature_dim, race_classes)
         
-        # Neutral-Text prompt: "A photo of [Neutral vector]"
-        self.neutral_token = nn.Parameter(torch.randn(1, txt_in_dim)) 
-        with torch.no_grad():
-            tokenized = clip.tokenize(["A photo of a person"]).to(device)
-            prefix_ids = tokenized[0][:5]  # [BOS, a, photo, of, a]
-            self.register_buffer("prompt_embed", self.clip.token_embedding(prefix_ids)  ) 
-
         # Null-Text prompt: ""
         with torch.no_grad():
-            tokens = clip.tokenize([args.clip_text_prompt]).to(self.device)
-            self.register_buffer("null_text_embed", self.clip.encode_text(tokens))  
-
+            tokens = clip.tokenize([args.clip_null_text]).to(self.device)
+            self.register_buffer("null_encoded", self.clip.encode_text(tokens))  
+            
+        
+        # Neutral-Text prompt: "A photo of a [Neutral vector]"
+        with torch.no_grad():
+            tokens = clip.tokenize(["A photo of a neutral"]).to(device)
+            self.register_buffer("neutral_embed", self.clip.token_embedding(tokens))     
+            
+        # [Neutral vector]"
+        with torch.no_grad():
+            tokens = clip.tokenize(["A photo of a person"]).to(device)
+            token_embeds = self.clip.token_embedding(tokens)
+            init_vector = token_embeds[0, 1:6].mean(dim=0, keepdim=True)
+        self.neutral_vector = nn.Parameter(init_vector.clone())
+            
+            
     def forward(self, x):
         B = x.size(0)
-        with torch.no_grad():
-            image_embedding = self.clip.encode_image(x) 
-            null_embeddding = self.null_text_embed.expand(B, -1) 
-            fused_null = torch.cat([image_embedding, null_embeddding], dim=1)
-            fused_null = self.fusion_mlp(fused_null)
         
-        prompt = self.prompt_embed.unsqueeze(0).expand(B, -1, -1) 
-        neutral = self.neutral_token.expand(B, -1).unsqueeze(1)  
-        neutral_prompt = torch.cat([prompt, neutral], dim=1)  # [BOS, a, photo, of, a, [Neutral]]
-
         with torch.no_grad():
-            pad_len = 77 - neutral_prompt.size(1)
-            pad_embed = self.clip.token_embedding(torch.zeros(pad_len, dtype=torch.long, device=x.device))  
-            pad_embed = pad_embed.unsqueeze(0).expand(B, -1, -1)  
-            neutral_prompt = torch.cat([neutral_prompt, pad_embed], dim=1)  # [B, 77, D]
+            # Image Encode            
+            image_encoded = self.clip.encode_image(x) 
+            
+            # Null-text Encode 
+            null_encoded = self.null_encoded.expand(B, -1)
+            fused_null = torch.cat([image_encoded, null_encoded], dim=1)
+            # Null-text Fuse
+            fused_null = self.fusion_mlp(fused_null)
+            
+        # A photo of a Neutral -> A photo of a [Neutral vector]
+        neutral_embed = self.neutral_embed.expand(B, -1, -1).clone() # (B, 77, D)
+        neutral_embed[:, 5, :] = self.neutral_vector.expand(B, -1)    # "Neutral" index = 5
+        
+        # Neutral-text Encode
+        neutral_encoded = neutral_embed + self.clip.positional_embedding 
+        neutral_encoded = neutral_encoded.permute(1, 0, 2)
+        neutral_encoded = self.clip.transformer(neutral_encoded)
+        neutral_encoded = neutral_encoded.permute(1, 0, 2) 
+        neutral_encoded = self.clip.ln_final(neutral_encoded)
+        
+        neutral_encoded = neutral_encoded[:, 6, :] # EOS token          
+        neutral_encoded = torch.matmul(neutral_encoded, self.clip.text_projection)
 
-        pos_embed = self.clip.positional_embedding[:neutral_prompt.size(1), :].unsqueeze(0)
-        neutral_prompt = neutral_prompt + pos_embed
-        neutral_prompt = neutral_prompt.permute(1, 0, 2) 
-
-        neutral_prompt = self.clip.transformer(neutral_prompt)   
-        neutral_prompt = neutral_prompt.permute(1, 0, 2) 
-        neutral_prompt = self.clip.ln_final(neutral_prompt)          
-
-        neutral_embed = neutral_prompt[:, 0, :]             
-        neutral_embed = torch.matmul(neutral_embed, self.clip.text_projection)
-
-        fused_neutral = torch.cat([image_embedding, neutral_embed], dim=1)
+        # Neutral-text Fuse
+        fused_neutral = torch.cat([image_encoded, neutral_encoded], dim=1)
         fused_neutral = self.fusion_mlp(fused_neutral) 
-
+        
+        # Classification Head
         gender_logits = self.gender_head(fused_neutral)
         race_logits = self.race_head(fused_neutral)
 
@@ -115,16 +122,22 @@ class CV_Model(nn.Module):
         self.args = args
         gender_classes, race_classes = num_classes
 
+        # ResNet 
         self.model = models.resnet50(weights='IMAGENET1K_V2')
         self.model.fc = nn.Sequential(
             nn.Linear(self.model.fc.in_features, args.feature_dim),
             nn.ReLU()
         )
+        
+        # Classification Head 
         self.gender_head = nn.Linear(args.feature_dim, gender_classes)
         self.race_head = nn.Linear(args.feature_dim, race_classes)
 
     def forward(self, x):
+        # Image Encode
         features = self.model(x)
+        
+        # Classification Head
         gender_logits = self.gender_head(features)
         race_logits = self.race_head(features)
 
@@ -138,7 +151,7 @@ class CV_Model(nn.Module):
 if __name__ == "__main__":
     from argparse import Namespace
 
-    args = Namespace(clip_backbone="RN50", clip_text_prompt='', feature_dim = 512)
+    args = Namespace(clip_backbone="RN50", clip_null_text='', feature_dim = 512)
     device = torch.device("cpu")
     num_classes = [2, 7]
     batch_size = 64

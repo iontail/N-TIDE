@@ -5,7 +5,6 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn 
 import torch.nn.functional as F
-from torch.cuda.amp import autocast
 
 from src.utils.bias_metric import *
 from src.model.get_models import get_models
@@ -33,17 +32,17 @@ class OfflineKDTrainer:
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
         if self.model_type == 'student': 
-            self.clip_pretrained, _ = get_models(self.args, self.device)
-            self.clip_pretrained.load_state_dict(torch.load("~~~~")['model'])
-            self.clip_pretrained = self.clip_pretrained.to(device)
-            self.clip_pretrained.eval()
+            self.teacher, _ = get_models(self.args, self.device)
+            self.teacher.load_state_dict(torch.load("~~~~")['model'])
+            self.teacher = self.teacher.to(device)
+            self.teacher.eval()
 
     def compute_losses(self, batch):
         images, labels = batch
         images, labels = images.to(self.device), labels.to(self.device)
         gender_labels, race_labels = labels[:, 1], labels[:, 2]  # labels: [Age, Gender, Race]
 
-        with autocast(device_type='cuda', dtype=torch.bfloat16 if self.args.bf16 else torch.float32):
+        with torch.autocast(device_type='cuda', dtype=torch.bfloat16 if self.args.bf16 else torch.float32):
             outputs = self.model(images)
 
             # Classification Loss (Gender, Race)
@@ -68,7 +67,7 @@ class OfflineKDTrainer:
                 # Knowledge Distillation Loss
                 # Teacher's features <-> Student's features (Cosine Similarity)
                 with torch.no_grad():
-                    clip_outputs = self.clip_pretrained(images)
+                    clip_outputs = self.teacher(images)
 
                 cosine_sim = F.cosine_similarity(outputs["features"], clip_outputs["f_neutral"].detach(), dim=-1)
                 kd_loss = 1 - cosine_sim.mean()
@@ -196,7 +195,7 @@ class OfflineKDTrainer:
                 })
 
             if (epoch + 1) % 5 == 0 or (epoch + 1) == self.num_epochs:
-                self.save_checkpoint(epoch + 1)
+                checkpoint_path = self.save_checkpoint(epoch + 1)
                 if self.args.use_wandb:
                     artifact.add_file(checkpoint_path)
                     
