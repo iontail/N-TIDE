@@ -4,24 +4,62 @@ import torch.nn as nn
 import clip
 from torchvision import models
 
-class CLIP_Model(nn.Module):
-    """
-    Args:
-        num_classes (tuple): A tuple of integers (num_gender_classes, num_race_classes).
-        args:
-            - clip_backbone (str): Name of the CLIP backbone to use (e.g., 'RN50').
-            - clip_text_prompt (str): Prompt used to construct the null text embedding.
-            - feature_dim (int): Hidden feature dimension used in fusion and classifiers.
+class Residual_MLP(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim, drop_rate=0.0):
+        super().__init__()
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, output_dim)
+        self.skip = nn.Linear(input_dim, output_dim) if input_dim != output_dim else nn.Identity()
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(drop_rate)
 
-    Returns:
-        A model that takes an image tensor of shape (B, 3, 224, 224) and returns a dictionary with:
-            - 'f_null' (Tensor): Fused feature from image and null text embedding, shape (B, feature_dim).
-            - 'f_neutral' (Tensor): Fused feature from image and neutral text prompt, shape (B, feature_dim).
-            - 'gender_logits' (Tensor): Gender classification logits, shape (B, num_gender_classes).
-            - 'race_logits' (Tensor): Race classification logits, shape (B, num_race_classes).
-    """
+    def forward(self, x):
+        output = self.fc1(x)
+        output = self.relu(output)
+        output = self.dropout(output)
+        output = self.fc2(output)
+        output = output + self.skip(x)
+        return self.relu(output)
+
+
+
+class CV_Model(nn.Module):
+    def __init__(self, num_classes, args):
+        super().__init__()
+        self.args = args
+        gender_classes, race_classes = num_classes
+
+        # ResNet 
+        self.model = models.resnet50(weights='IMAGENET1K_V2')
+        self.model.fc = Residual_MLP(
+            input_dim = self.model.fc.in_features,
+            hidden_dim = args.feature_dim,
+            output_dim = args.feature_dim
+        )
+        
+        # Classification Head 
+        self.gender_head = nn.Linear(args.feature_dim, gender_classes)
+        self.race_head = nn.Linear(args.feature_dim, race_classes)
+
+    def forward(self, x):
+        # Image Encode
+        features = self.model(x)
+        
+        # Classification Head
+        gender_logits = self.gender_head(features)
+        race_logits = self.race_head(features)
+
+        return {
+            'features': features,
+            'gender_logits': gender_logits,
+            'race_logits': race_logits,
+        }
+
+
+
+class CLIP_Model(nn.Module):
     def __init__(self, num_classes, args, device):
-        super(CLIP_Model, self).__init__()
+        super().__init__()
         self.args = args
         self.device = device
         gender_classes, race_classes = num_classes
@@ -31,52 +69,49 @@ class CLIP_Model(nn.Module):
         for param in self.model.parameters():
             param.requires_grad = False
 
-        # Fuse MLP
-        # self.fusion_mlp = nn.Sequential(
-        #     nn.Linear(self.model.visual.output_dim + self.model.text_projection.shape[1], args.feature_dim * 2),
-        #     nn.ReLU(),
-        #     nn.Dropout(0.2),
-        #     nn.Linear(args.feature_dim * 2, args.feature_dim),
-        #     nn.ReLU()
-        # )
-        
-        # Classification head
-        # self.gender_head = nn.Linear(args.feature_dim, gender_classes)
-        # self.race_head = nn.Linear(args.feature_dim, race_classes)
-        
-        # # Null-Text prompt: ""
-        # with torch.no_grad():
-        #     tokens = clip.tokenize([args.clip_null_text]).to(self.device)
-        #     self.register_buffer("null_encoded", self.model.encode_text(tokens))  
+        self.model.eval()
+
+        # Null-Text prompt: ""
+        with torch.no_grad():
+            tokens = clip.tokenize([args.clip_null_text]).to(self.device)
+            self.register_buffer("null_encoded", self.model.encode_text(tokens))  
              
-        # # Neutral-Text prompt: "A photo of a [Neutral vector]"
-        # with torch.no_grad():
-        #     tokens = clip.tokenize(["A photo of a neutral"]).to(device)
-        #     self.register_buffer("neutral_embed", self.model.token_embedding(tokens))     
+        # Neutral-Text prompt: "A photo of a [Neutral vector]"
+        with torch.no_grad():
+            tokens = clip.tokenize(["A photo of a neutral"]).to(device)
+            self.register_buffer("neutral_embed", self.model.token_embedding(tokens))     
             
-        # # Initialize [Neutral vector]
-        # with torch.no_grad():
-        #     tokens = clip.tokenize(["A photo of a person"]).to(device)
-        #     token_embeds = self.model.token_embedding(tokens)
-        #     init_vector = token_embeds[0, 1:6].mean(dim=0, keepdim=True)
-        # self.neutral_vector = nn.Parameter(init_vector.clone())
+        # Initialize [Neutral vector]
+        with torch.no_grad():
+            tokens = clip.tokenize(["A photo of a person"]).to(device)
+            token_embeds = self.model.token_embedding(tokens)
+            init_vector = token_embeds[0, 1:6].mean(dim=0, keepdim=True)
+        self.neutral_vector = nn.Parameter(init_vector.clone())
 
+        # Fusion MLP
+        self.fusion_mlp = Residual_MLP(
+            # input_dim = self.model.visual.output_dim + self.model.text_projection.shape[1],
+            input_dim = self.model.visual.output_dim,
+            hidden_dim = args.feature_dim,
+            output_dim = args.feature_dim,
+        )
 
-        self.fusion_mlp = nn.Identity()
-        self.gender_head = nn.Linear(self.model.visual.output_dim, gender_classes)
-        self.race_head = nn.Linear(self.model.visual.output_dim, race_classes)
+        # Classification Head
+        self.gender_head = nn.Linear(args.feature_dim, gender_classes)
+        self.race_head = nn.Linear(args.feature_dim, race_classes)
 
 
     def forward(self, x):
+        B = x.size(0)
         with torch.no_grad():
             image_encoded = self.model.encode_image(x)
-            image_encoded = image_encoded / image_encoded.norm(dim=-1, keepdim=True)
-            
-            fused_null = torch.zeros_like(fused_neutral)
+            # image_encoded = image_encoded / image_encoded.norm(dim=-1, keepdim=True)
 
         fused_neutral = self.fusion_mlp(image_encoded)
         gender_logits = self.gender_head(fused_neutral)
         race_logits = self.race_head(fused_neutral)
+
+        fused_null = torch.zeros_like(fused_neutral)
 
         return {
             'f_null': fused_null,
@@ -127,50 +162,6 @@ class CLIP_Model(nn.Module):
     #         'race_logits': race_logits,
     #     }
     
-
-class CV_Model(nn.Module):
-    """
-    Args:
-        num_classes (tuple): A tuple of integers (num_gender_classes, num_race_classes).
-        args: 
-            - feature_dim (int): Hidden feature dimension used in projection and classification.
-
-    Returns:
-        A model that takes an image tensor of shape (B, 3, 224, 224) and returns a dictionary with:
-            - 'features' (Tensor): Extracted visual features, shape (B, feature_dim).
-            - 'gender_logits' (Tensor): Gender classification logits, shape (B, num_gender_classes).
-            - 'race_logits' (Tensor): Race classification logits, shape (B, num_race_classes).
-    """
-
-    def __init__(self, num_classes, args):
-        super(CV_Model, self).__init__()
-        self.args = args
-        gender_classes, race_classes = num_classes
-
-        # ResNet 
-        self.model = models.resnet50(weights='IMAGENET1K_V2')
-        self.model.fc = nn.Sequential(
-            nn.Linear(self.model.fc.in_features, args.feature_dim),
-            nn.ReLU()
-        )
-        
-        # Classification Head 
-        self.gender_head = nn.Linear(args.feature_dim, gender_classes)
-        self.race_head = nn.Linear(args.feature_dim, race_classes)
-
-    def forward(self, x):
-        # Image Encode
-        features = self.model(x)
-        
-        # Classification Head
-        gender_logits = self.gender_head(features)
-        race_logits = self.race_head(features)
-
-        return {
-            'features': features,
-            'gender_logits': gender_logits,
-            'race_logits': race_logits,
-        }
     
 
 if __name__ == "__main__":
@@ -183,18 +174,18 @@ if __name__ == "__main__":
 
     sample_image = torch.randn(batch_size, 3, 224, 224)
 
-    clip_model = CLIP_Model(num_classes, args, device)
-    outputs = clip_model(sample_image)
-    print("-- CLIP Model:")
-    print("Fused Neutral-text Feature shape:", outputs['f_neutral'].shape)
-    print("Fused Null-text Feature shape:", outputs['f_null'].shape)
+    cv_model = CV_Model(num_classes, args)
+    outputs = cv_model(sample_image)
+    print("-- CV Model:")
+    print("Features shape:", outputs['features'].shape)
     print("Gender logits shape:", outputs['gender_logits'].shape)
     print("Race logits shape:", outputs['race_logits'].shape)
 
-    cv_model = CV_Model(num_classes, args)
-    outputs = cv_model(sample_image)
-    print("\n-- CV Model:")
-    print("Features shape:", outputs['features'].shape)
+    clip_model = CLIP_Model(num_classes, args, device)
+    outputs = clip_model(sample_image)
+    print("\n-- CLIP Model:")
+    print("Fused Neutral-text Feature shape:", outputs['f_neutral'].shape)
+    print("Fused Null-text Feature shape:", outputs['f_null'].shape)
     print("Gender logits shape:", outputs['gender_logits'].shape)
     print("Race logits shape:", outputs['race_logits'].shape)
 

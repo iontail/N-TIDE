@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn 
 import torch.nn.functional as F
 
-from src.utils.bias_metric import *
+from src.utils.bias_metric import compute_bias_metrics
 
 class BasicTrainer:
     def __init__(self, model, train_loader, val_loader,

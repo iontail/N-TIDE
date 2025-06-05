@@ -1,4 +1,4 @@
-from src.model.debiasing_models import CLIP_Model, CV_Model
+from src.model.debiasing_models import CV_Model, CLIP_Model
 
 def get_models(args, device):
     if args.dataset_name == "UTKFace":

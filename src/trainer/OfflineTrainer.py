@@ -6,8 +6,8 @@ import torch
 import torch.nn as nn 
 import torch.nn.functional as F
 
-from src.utils.bias_metric import *
 from src.model.get_models import get_models
+from src.utils.bias_metric import compute_bias_metrics
 
 class OfflineKDTrainer:
     def __init__(self, model, model_type, train_loader, val_loader,
@@ -101,7 +101,6 @@ class OfflineKDTrainer:
 
             self.optimizer.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.optimizer.step()
 
             train_loss += losses['total_loss'].item()
