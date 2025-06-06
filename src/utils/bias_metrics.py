@@ -1,12 +1,9 @@
 import torch
 from itertools import combinations
 
-def compute_metrics(logits, labels, group_labels, features):
-    # Accuracy 
-    preds = torch.argmax(logits, dim=1)
-    accuracy_correct = (preds == labels).sum().item()
-
+def compute_bias_metrics(logits, labels, group_labels, features):
     # Bias metrics
+    preds = torch.argmax(logits, dim=1)
     groups = torch.unique(group_labels)
     masks = {g.item(): (group_labels == g) for g in groups}
     num_classes = logits.shape[1]
@@ -66,6 +63,4 @@ def compute_metrics(logits, labels, group_labels, features):
             'representation_bias_distance': representation_bias_dist
         }
 
-    result = {'accuracy_correct': accuracy_correct}
-    result.update(bias_results)
-    return result
+    return bias_results
