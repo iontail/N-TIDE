@@ -1,6 +1,7 @@
 import os
 import wandb
 from tqdm import tqdm
+from collections import defaultdict
 
 import torch
 import torch.nn as nn 
@@ -111,6 +112,8 @@ class BasicTrainer:
         eval_loss = 0.0
         gender_correct, race_correct, total = 0, 0, 0
 
+        bias_data = defaultdict(list)
+        
         with torch.no_grad():
             for batch in tqdm(self.val_loader, desc="Evaluation", leave=False):
                 # Compute Losses 
@@ -124,11 +127,46 @@ class BasicTrainer:
                 race_correct += r_correct
                 total += labels.size(0)
 
+                # Collect bias-related data
+                bias_data["gender_logits"].append(outputs['gender_logits'].detach().cpu())
+                bias_data["race_logits"].append(outputs['race_logits'].detach().cpu())
+                bias_data["features"].append(outputs['features'].detach().cpu())
+                bias_data["gender_labels"].append(labels[:, 1].detach().cpu())
+                bias_data["race_labels"].append(labels[:, 2].detach().cpu())
+
+        for k in bias_data:
+            bias_data[k] = torch.cat(bias_data[k], dim=0)
+
+        # Compute bias metrics
+        # 1) Label: Gender / Group: Race
+        gender_race_results = compute_bias_metrics(
+            logits=bias_data["gender_logits"],
+            labels=bias_data["gender_labels"],
+            group_labels=bias_data["race_labels"],
+            features=bias_data["features"]
+        )
+
+         # 2) Label: Race / Group: Gender
+        race_gender_results = compute_bias_metrics(
+            logits=bias_data["race_logits"],
+            labels=bias_data["race_labels"],
+            group_labels=bias_data["gender_labels"],
+            features=bias_data["features"]
+        )
+        
         # Logging 
         eval_log = {}
         eval_log["eval_loss"] = eval_loss / len(self.val_loader)
         eval_log["eval_gender_acc"] = gender_correct / total
         eval_log["eval_race_acc"] = race_correct / total
+        
+        for k, v in gender_race_results.items():
+            for metric, value in v.items():
+                eval_log[f"eval_gender_race/{k}/{metric}"] = value
+        for k, v in race_gender_results.items():
+            for metric, value in v.items():
+                eval_log[f"eval_race_gender/{k}/{metric}"] = value
+        
         return eval_log
 
     def save_checkpoint(self, epoch):
@@ -155,9 +193,12 @@ class BasicTrainer:
                     "epoch/train_loss": train_log['train_loss'],
                     "epoch/train_gender_acc": train_log['train_gender_acc'],
                     "epoch/train_race_acc": train_log['train_race_acc'],
+                    
                     'epoch/eval_loss': eval_log['eval_loss'],
                     'epoch/eval_gender_acc': eval_log['eval_gender_acc'],
                     'epoch/eval_race_acc': eval_log['eval_race_acc']
+
+                    
                 })
 
             if (epoch + 1) % 5 == 0 or (epoch + 1) == self.num_epochs:
