@@ -31,8 +31,7 @@ def get_arguments():
     parser.add_argument('--train_mode', type=str, choices=['baseline', 'offline_teacher', 'offline_student'], default='offline_teacher', help="Training mode type")
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size for training")
     parser.add_argument('--num_epochs', type=int, default=25, help="Number of training epochs")
-    parser.add_argument('--bf16', action='store_true', help="Enable bfloat16 precision training")
-
+   
     # -- CLIP model
     parser.add_argument('--c_optimizer', type=str, default='AdamW', help="Opti mizer for CLIP model")
     parser.add_argument('--c_scheduler', type=str, default='Cosine', help="Scheduler for CLIP model")

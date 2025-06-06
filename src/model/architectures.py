@@ -15,9 +15,10 @@ class CLIP_Model(nn.Module):
 
         # CLIP (Freeze)
         self.model, _ = clip.load(args.clip_backbone, device=self.device) 
+        self.model = self.model.float()
+
         for param in self.model.parameters():
             param.requires_grad = False
-
         self.model.eval()
 
         # Null-Text prompt: ""
@@ -39,7 +40,7 @@ class CLIP_Model(nn.Module):
             nn.Linear(self.model.visual.output_dim + self.model.text_projection.shape[1], args.feature_dim),
             nn.ReLU(),
             nn.Linear(args.feature_dim, args.feature_dim),
-            nn.ReLU(),
+            # nn.ReLU(),
         )
 
         # Classification Head

@@ -35,15 +35,15 @@ class BasicTrainer:
         images, labels = images.to(self.device), labels.to(self.device)
         gender_labels, race_labels = labels[:, 1], labels[:, 2] # labels: [Age, Gender, Race]
 
-        with torch.autocast(device_type='cuda', dtype=torch.bfloat16 if self.args.bf16 else torch.float32):
-            outputs = self.model(images)
+        # Forward
+        outputs = self.model(images)
 
-            # Classification Loss (Gender, Race)
-            cls_g_loss = self.gender_criterion(outputs['gender_logits'], gender_labels)
-            cls_r_loss = self.race_criterion(outputs['race_logits'], race_labels)
+        # Classification Loss (Gender, Race)
+        cls_g_loss = self.gender_criterion(outputs['gender_logits'], gender_labels)
+        cls_r_loss = self.race_criterion(outputs['race_logits'], race_labels)
 
-            # Total Loss
-            total_loss = self.args.lambda_g * cls_g_loss + self.args.lambda_r * cls_r_loss
+        # Total Loss
+        total_loss = self.args.lambda_g * cls_g_loss + self.args.lambda_r * cls_r_loss
 
         # Logging 
         losses = {}
@@ -73,6 +73,7 @@ class BasicTrainer:
             losses, outputs = self.compute_losses(batch)
             loss = losses['total_loss']
 
+            # Backward 
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()

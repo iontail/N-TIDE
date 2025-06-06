@@ -43,39 +43,39 @@ class OfflineKDTrainer:
         images, labels = images.to(self.device), labels.to(self.device)
         gender_labels, race_labels = labels[:, 1], labels[:, 2]  # labels: [Age, Gender, Race]
 
-        with torch.autocast(device_type='cuda', dtype=torch.bfloat16 if self.args.bf16 else torch.float32):
-            outputs = self.model(images)
+        # Forward 
+        outputs = self.model(images)
 
-            # Classification Loss (Gender, Race)
-            cls_g_loss = self.gender_criterion(outputs['gender_logits'], gender_labels)
-            cls_r_loss = self.race_criterion(outputs['race_logits'], race_labels)
-            
-            # Logging 
-            losses = {} 
-            losses["cls_gender_loss"] = cls_g_loss
-            losses["cls_race_loss"] = cls_r_loss
+        # Classification Loss (Gender, Race)
+        cls_g_loss = self.gender_criterion(outputs['gender_logits'], gender_labels)
+        cls_r_loss = self.race_criterion(outputs['race_logits'], race_labels)
+        
+        # Logging 
+        losses = {} 
+        losses["cls_gender_loss"] = cls_g_loss
+        losses["cls_race_loss"] = cls_r_loss
 
-            if self.model_type == 'teacher':
-                # Alignment Loss
-                # Neutral-text embeddings <-> Null-text embeddings (MSE)
-                align_loss = F.mse_loss(outputs['features'], outputs['f_null'].detach())
-                losses["feature_loss"] = align_loss
+        if self.model_type == 'teacher':
+            # Alignment Loss
+            # Neutral-text embeddings <-> Null-text embeddings (MSE)
+            align_loss = F.mse_loss(outputs['features'], outputs['f_null'].detach())
+            losses["feature_loss"] = align_loss
 
-                # Teacher's Total Loss
-                losses["total_loss"] = self.args.lambda_g * cls_g_loss + self.args.lambda_r * cls_r_loss + self.args.lambda_t * align_loss
+            # Teacher's Total Loss
+            losses["total_loss"] = self.args.lambda_g * cls_g_loss + self.args.lambda_r * cls_r_loss + self.args.lambda_t * align_loss
 
-            elif self.model_type == 'student': 
-                # Knowledge Distillation Loss
-                # Teacher's features <-> Student's features (Cosine Similarity)
-                with torch.no_grad():
-                    clip_outputs = self.teacher(images)
+        elif self.model_type == 'student': 
+            # Knowledge Distillation Loss
+            # Teacher's features <-> Student's features (Cosine Similarity)
+            with torch.no_grad():
+                clip_outputs = self.teacher(images)
 
-                cosine_sim = F.cosine_similarity(outputs["features"], clip_outputs["features"].detach(), dim=-1)
-                kd_loss = 1 - cosine_sim.mean()
-                losses["feature_loss"] = kd_loss
+            cosine_sim = F.cosine_similarity(outputs["features"], clip_outputs["features"].detach(), dim=-1)
+            kd_loss = 1 - cosine_sim.mean()
+            losses["feature_loss"] = kd_loss
 
-                # Student's Total Loss
-                losses["total_loss"] = self.args.lambda_g * cls_g_loss + self.args.lambda_r * cls_r_loss + self.args.lambda_s * kd_loss
+            # Student's Total Loss
+            losses["total_loss"] = self.args.lambda_g * cls_g_loss + self.args.lambda_r * cls_r_loss + self.args.lambda_s * kd_loss
             
         return losses, outputs
     
@@ -100,6 +100,7 @@ class OfflineKDTrainer:
             losses, outputs = self.compute_losses(batch)
             loss = losses['total_loss']
 
+            # Backward
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
