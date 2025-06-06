@@ -8,7 +8,6 @@ class UTKFaceDataset(torch.utils.data.Dataset):
     Hugging Face UTKFace-Cropped Dataset.
         - "jpg.chip.jpg": PIL.Image
         - "__key__": string formatted as "[age]_[gender]_[race]_..."
-    Returns (image, label) where label = [age, gender, race]
     """
     def __init__(self, dataset, transform):
         self.dataset = dataset

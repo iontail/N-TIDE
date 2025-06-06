@@ -164,7 +164,7 @@ class BasicTrainer:
             eval_log[f"eval_gender_race/{k}"] = v
         for k, v in race_gender_results.items():
             eval_log[f"eval_race_gender/{k}/"] = v
-        
+ 
         return eval_log
 
     def save_checkpoint(self, epoch):

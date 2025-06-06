@@ -8,15 +8,6 @@ from src.dataset.UTKFace import UTKFaceDataset
 from src.dataset.FairFace import FairFaceDataset
 
 def get_dataset(args):
-    """
-    Args:
-        dataset_path (str): Hugging Face UTKFace-Cropped dataset
-        dataset_split_ratio (list): [train, valid, test]
-        random_state (int)
-
-    Returns:
-        train_dataset, valid_dataset, test_dataset
-    """
     train_transforms, test_transforms = get_transforms(args)
 
     # UTKFace Dataset

@@ -1,8 +1,10 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 import clip
 from torchvision import models
+
 
 class CLIP_Model(nn.Module):
     def __init__(self, num_classes, args, device):
@@ -26,28 +28,23 @@ class CLIP_Model(nn.Module):
         # Neutral-Text prompt: "A photo of a [Neutral vector]"
         with torch.no_grad():
             tokens = clip.tokenize(["A photo of a neutral"]).to(device)
-            self.register_buffer("neutral_embed", self.model.token_embedding(tokens))     
-            
-        # Initialize [Neutral vector]
-        with torch.no_grad():
-            tokens = clip.tokenize(["A photo of a person"]).to(device)
-            token_embeds = self.model.token_embedding(tokens)
-            init_vector = token_embeds[0, 1:6].mean(dim=0, keepdim=True)
-        self.neutral_vector = nn.Parameter(init_vector.clone())
+            self.register_buffer("neutral_token_embed", self.model.token_embedding(tokens))     
 
+        # Initialize [Neutral vector]
+        self.neutral_vector = nn.Parameter(torch.empty(1, self.model.token_embedding.embedding_dim))
+        nn.init.normal_(self.neutral_vector, mean=0.0, std=0.02)
+        
         # Fusion MLP
         self.fusion_mlp = nn.Sequential(
             nn.Linear(self.model.visual.output_dim + self.model.text_projection.shape[1], args.feature_dim),
             nn.ReLU(),
-            nn.Dropout(0.2),
             nn.Linear(args.feature_dim, args.feature_dim),
-            nn.ReLU()
         )
-    
+
         # Classification Head
         self.gender_head = nn.Linear(args.feature_dim, gender_classes)
         self.race_head = nn.Linear(args.feature_dim, race_classes)
-
+        
     def _encode_image(self, x):
         return self.model.encode_image(x)
 
@@ -58,30 +55,33 @@ class CLIP_Model(nn.Module):
         x = x.permute(1, 0, 2) 
         x = self.model.ln_final(x)
         
-        x = x[:, 6, :] # EOS token          
+        x = x[:, 6, :] # EOS token, index = 6          
         x = torch.matmul(x, self.model.text_projection)
         return x
 
     def forward(self, x):
-        B = x.size(0)
-        
+        B = x.size(0)          
+
         with torch.no_grad():
-            # Image Encode            
-            image_encoded = self._encode_image(x) 
-            
+            # Image Encode
+            image_enc = self._encode_image(x)
+            image_enc = F.normalize(image_enc, dim=-1)
+
             # Null-text Encode and Fuse
-            null_encoded = self.null_encoded.expand(B, -1)
-            fused_null = torch.cat([image_encoded, null_encoded], dim=1)
+            null_enc = self.null_encoded.expand(B, -1)
+            null_enc = F.normalize(null_enc, dim=-1)
+            fused_null = torch.cat([image_enc, null_enc], dim=1)
             fused_null = self.fusion_mlp(fused_null)
             
         # A photo of a neutral -> A photo of a [Neutral vector]
-        neutral_embed = self.neutral_embed.expand(B, -1, -1).clone() # (B, 77, D)
+        neutral_embed = self.neutral_token_embed.expand(B, -1, -1).clone() # (B, 77, D)
         neutral_embed[:, 5, :] = self.neutral_vector.expand(B, -1)    # "neutral" index = 5
 
         # Neutral-text Encode and Fuse
-        neutral_encoded = self._encode_neutral_text(neutral_embed)
-        fused_neutral = torch.cat([image_encoded, neutral_encoded], dim=1)
-        fused_neutral = self.fusion_mlp(fused_neutral) 
+        neutral_enc = self._encode_neutral_text(neutral_embed)
+        neutral_enc = F.normalize(neutral_enc, dim=-1)
+        fused_neutral = torch.cat([image_enc, neutral_enc], dim=1)
+        fused_neutral = self.fusion_mlp(fused_neutral)
 
         # Classification Head
         gender_logits = self.gender_head(fused_neutral)
@@ -89,7 +89,7 @@ class CLIP_Model(nn.Module):
 
         return {
             'f_null': fused_null,
-            'f_neutral': fused_neutral,
+            'features': fused_neutral,
             'gender_logits': gender_logits,
             'race_logits': race_logits,
         }

@@ -6,7 +6,6 @@ class FairFaceDataset(torch.utils.data.Dataset):
     Hugging Face FairFace Dataset.
         - Crop and align faces with padding = 0.25 in the main experiments
         - and padding = 1.25 for the bias measument experiment for commercial APIs.
-    Returns (image, label), where label = [age, gender, race]
     """
     
     def __init__(self, dataset, transform):
