@@ -3,12 +3,18 @@ from itertools import combinations
 
 def compute_bias_metrics(logits, labels, group_labels, features):
     # Bias metrics
+    bias_results = {
+        'equal_opportunity_difference': 0.0,
+        'equalized_odds_difference': 0.0,
+        'demographic_parity_difference': 0.0,
+        'representation_bias_distance': 0.0
+    }
+    
     preds = torch.argmax(logits, dim=1)
     groups = torch.unique(group_labels)
     masks = {g.item(): (group_labels == g) for g in groups}
     num_classes = logits.shape[1]
-
-    bias_results = {}
+    
     for c in range(num_classes):
         # One-vs-Rest
         bin_labels = (labels == c).long()
@@ -54,13 +60,14 @@ def compute_bias_metrics(logits, labels, group_labels, features):
             eod = 0.5 * (abs(tpr[g1] - tpr[g2]) + abs(fpr[g1] - fpr[g2]))
             if eod > equalized_odds_diff:
                 equalized_odds_diff = eod
+                
+        bias_results['equal_opportunity_difference'] += tpr_diff
+        bias_results['equalized_odds_difference'] += equalized_odds_diff
+        bias_results['demographic_parity_difference'] += demographic_parity_diff
+        bias_results['representation_bias_distance'] += representation_bias_dist
+
+    # Average over all classes (mean of bias metrics computed per class)
+    for key in bias_results:
+        bias_results[key] /= num_classes
         
-
-        bias_results[f'class_{c}'] = {
-            'equal_opportunity_difference': tpr_diff,
-            'equalized_odds_difference': equalized_odds_diff,
-            'demographic_parity_difference': demographic_parity_diff,
-            'representation_bias_distance': representation_bias_dist
-        }
-
     return bias_results
