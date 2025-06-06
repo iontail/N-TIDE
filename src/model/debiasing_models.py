@@ -4,25 +4,6 @@ import torch.nn as nn
 import clip
 from torchvision import models
 
-class Residual_MLP(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, drop_rate=0.2):
-        super().__init__()
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, output_dim)
-        self.skip = nn.Linear(input_dim, output_dim) if input_dim != output_dim else nn.Identity()
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(drop_rate)
-
-    def forward(self, x):
-        output = self.fc1(x)
-        output = self.relu(output)
-        output = self.dropout(output)
-        output = self.fc2(output)
-        output = output + self.skip(x)
-        return self.relu(output)
-
-
-
 class CLIP_Model(nn.Module):
     def __init__(self, num_classes, args, device):
         super().__init__()
@@ -55,13 +36,14 @@ class CLIP_Model(nn.Module):
         self.neutral_vector = nn.Parameter(init_vector.clone())
 
         # Fusion MLP
-        self.fusion_mlp = Residual_MLP(
-            # input_dim = self.model.visual.output_dim + self.model.text_projection.shape[1],
-            input_dim = self.model.visual.output_dim,
-            hidden_dim = args.feature_dim,
-            output_dim = args.feature_dim,
+        self.fusion_mlp = nn.Sequential(
+            nn.Linear(self.model.visual.output_dim + self.model.text_projection.shape[1], args.feature_dim),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(args.feature_dim, args.feature_dim),
+            nn.ReLU()
         )
-
+    
         # Classification Head
         self.gender_head = nn.Linear(args.feature_dim, gender_classes)
         self.race_head = nn.Linear(args.feature_dim, race_classes)
@@ -79,7 +61,6 @@ class CLIP_Model(nn.Module):
         x = x[:, 6, :] # EOS token          
         x = torch.matmul(x, self.model.text_projection)
         return x
-
 
     def forward(self, x):
         B = x.size(0)
