@@ -39,6 +39,7 @@ class CLIP_Model(nn.Module):
             nn.Linear(self.model.visual.output_dim + self.model.text_projection.shape[1], args.feature_dim),
             nn.ReLU(),
             nn.Linear(args.feature_dim, args.feature_dim),
+            nn.ReLU(),
         )
 
         # Classification Head
@@ -104,11 +105,14 @@ class ResNet_Model(nn.Module):
 
         # ResNet 
         self.model = models.resnet50(weights='IMAGENET1K_V2')
+        self.model.fc = nn.Sequential(
+            nn.Linear(self.model.fc.in_features, args.feature_dim),
+            nn.ReLU()
+        )
 
         # Classification Head 
-        self.gender_head = nn.Linear(self.model.fc.in_features, gender_classes)
-        self.race_head = nn.Linear(self.model.fc.in_features, race_classes)
-        self.model.fc = nn.Identity()
+        self.gender_head = nn.Linear(args.feature_dim, gender_classes)
+        self.race_head = nn.Linear(args.feature_dim, race_classes)
 
     def forward(self, x):
         # Image Encode

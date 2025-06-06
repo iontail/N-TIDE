@@ -37,7 +37,7 @@ def get_arguments():
     parser.add_argument('--c_optimizer', type=str, default='AdamW', help="Opti mizer for CLIP model")
     parser.add_argument('--c_scheduler', type=str, default='Cosine', help="Scheduler for CLIP model")
     parser.add_argument('--c_learning_rate', type=float, default=1e-4, help="Learning rate for CLIP model")
-    parser.add_argument('--c_weight_decay', type=float, default=1e-4, help="Weight decay for CLIP model")
+    parser.add_argument('--c_weight_decay', type=float, default=1e-5, help="Weight decay for CLIP model")
     parser.add_argument('--c_eta_min', type=float, default=1e-5, help="Minimum LR for CLIP scheduler")
 
     # -- CV model
