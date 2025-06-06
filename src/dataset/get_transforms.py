@@ -12,7 +12,7 @@ def get_transforms(args):
 
     if args.train_transform_type == 'strong':
         train_transforms = transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=(0.6, 1.0)),
+            transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
             transforms.RandomHorizontalFlip(p=0.5),
             transforms.RandomRotation(degrees=15),
             transforms.RandomPerspective(distortion_scale=0.2, p=0.5),

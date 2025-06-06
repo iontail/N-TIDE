@@ -1,4 +1,4 @@
-from src.model.debiasing_models import CV_Model, CLIP_Model
+from src.model.debiasing_models import CLIP_Model, ResNet_Model
 
 def get_models(args, device):
     if args.dataset_name == "UTKFace":
@@ -7,5 +7,5 @@ def get_models(args, device):
         num_classes = [2, len(args.fairface_race_class)] # [Gender, Race]
 
     clip = CLIP_Model(num_classes, args, device)
-    resnet = CV_Model(num_classes, args)
+    resnet = ResNet_Model(num_classes, args)
     return clip, resnet

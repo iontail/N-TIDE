@@ -1,13 +1,14 @@
 import os
 import wandb
 from tqdm import tqdm
+from collections import defaultdict
 
 import torch
 import torch.nn as nn 
 import torch.nn.functional as F
 
 from src.model.get_models import get_models
-from src.utils.bias_metric import compute_bias_metrics
+from src.utils.bias_metrics import compute_bias_metrics
 
 class OfflineKDTrainer:
     def __init__(self, model, model_type, train_loader, val_loader,
@@ -175,8 +176,8 @@ class OfflineKDTrainer:
         return checkpoint_path  
 
     def train(self):
-        if self.args.use_wandb:
-            artifact = wandb.Artifact(name=self.run_name, type="model")
+        # if self.args.use_wandb:
+        #     artifact = wandb.Artifact(name=self.run_name, type="model")
 
         for epoch in range(self.num_epochs):
             train_log, eval_log = self.train_epoch(epoch)
@@ -194,10 +195,10 @@ class OfflineKDTrainer:
                     'epoch/eval_race_acc': eval_log['eval_race_acc']
                 })
 
-            if (epoch + 1) % 5 == 0 or (epoch + 1) == self.num_epochs:
-                checkpoint_path = self.save_checkpoint(epoch + 1)
-                if self.args.use_wandb:
-                    artifact.add_file(checkpoint_path)
+        #     if (epoch + 1) % 5 == 0 or (epoch + 1) == self.num_epochs:
+        #         checkpoint_path = self.save_checkpoint(epoch + 1)
+        #         if self.args.use_wandb:
+        #             artifact.add_file(checkpoint_path)
                     
-        if self.args.use_wandb:
-            wandb.log_artifact(artifact)
+        # if self.args.use_wandb:
+        #     wandb.log_artifact(artifact)
