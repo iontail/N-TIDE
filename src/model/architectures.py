@@ -116,11 +116,7 @@ class ResNet_Model(nn.Module):
 
         # ResNet 
         self.model = models.resnet50(weights='IMAGENET1K_V2')
-        self.model.fc = nn.Sequential(
-            nn.Linear(self.model.fc.in_features, args.feature_dim),
-            nn.ReLU(),
-            nn.Linear(args.feature_dim, args.feature_dim)
-        )
+        self.model.fc = nn.Linear(self.model.fc.in_features, args.feature_dim)
 
         # Classification Head 
         self.gender_head = nn.Linear(args.feature_dim, gender_classes)

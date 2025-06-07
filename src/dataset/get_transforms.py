@@ -18,13 +18,13 @@ def get_transforms(args):
             transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),
             transforms.RandomHorizontalFlip(p=0.5),
             transforms.RandomRotation(degrees=15),
-            # transforms.RandomPerspective(distortion_scale=0.2, p=0.5),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+            transforms.RandomPerspective(distortion_scale=0.2, p=0.5),
+            transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
             transforms.RandomApply([transforms.GaussianBlur(kernel_size=5)], p=0.3),
-            # transforms.RandomEqualize(p=0.3), 
+            transforms.RandomEqualize(p=0.3), 
             transforms.ToTensor(),
             transforms.Normalize(mean=mean, std=std),
-            transforms.RandomErasing(p=0.3),
+            transforms.RandomErasing(p=0.5),
         ])
 
     elif args.train_transform_type == 'weak':
