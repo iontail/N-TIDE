@@ -43,12 +43,12 @@ def get_arguments():
     parser.add_argument('--m_optimizer', type=str, default='AdamW', help="Optimizer for CV model")
     parser.add_argument('--m_scheduler', type=str, default='Cosine', help="Scheduler for CV model")
     parser.add_argument('--m_learning_rate', type=float, default=1e-4, help="Learning rate for CV model")
-    parser.add_argument('--m_weight_decay', type=float, default=5e-2, help="Weight decay for CV model")
+    parser.add_argument('--m_weight_decay', type=float, default=1e-2, help="Weight decay for CV model")
     parser.add_argument('--m_eta_min', type=float, default=1e-5, help="Minimum LR for CV scheduler")
 
     # -- Loss
-    parser.add_argument('--gender_smoothing', type=float, default=0.05, help="Label smoothing factor for gender classification")
-    parser.add_argument('--race_smoothing', type=float, default=0.2, help="Label smoothing factor for race classification")
+    parser.add_argument('--gender_smoothing', type=float, default=0.0, help="Label smoothing factor for gender classification")
+    parser.add_argument('--race_smoothing', type=float, default=0.0, help="Label smoothing factor for race classification")
     parser.add_argument('--lambda_g', type=float, default=1, help="Weight for Gender Classification loss")
     parser.add_argument('--lambda_r', type=float, default=2, help="Weight for Race Classification loss") 
     parser.add_argument('--lambda_t', type=float, default=10, help="Weight for Teacher loss, CLIP model's Align loss")

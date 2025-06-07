@@ -41,8 +41,8 @@ def main(args):
         num_workers=num_workers, persistent_workers=True
     )
 
-    clip, model = get_models(args, device)
-    clip, model = clip.to(device), model.to(device)
+    teacher, student = get_models(args, device)
+    teacher, student = teacher.to(device), student.to(device)
 
     # Basline Train: Fine-tuning ResNet50 (pretrained on ImageNet)
     if args.train_mode == 'baseline':
@@ -51,7 +51,7 @@ def main(args):
             wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args)
 
         optimizer = torch.optim.AdamW(
-            model.parameters(), 
+            student.parameters(), 
             lr=args.m_learning_rate, weight_decay=args.m_weight_decay
         )
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -59,7 +59,7 @@ def main(args):
             T_max=args.num_epochs, eta_min=args.m_eta_min
         )
         trainer = BasicTrainer(
-            model=model, 
+            model=student, 
             train_loader=train_loader, val_loader=val_loader,
             optimizer=optimizer, scheduler=scheduler, 
             device=device, args=args, run_name=run_name
@@ -72,7 +72,7 @@ def main(args):
             wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args)
 
         optimizer = torch.optim.AdamW(
-            filter(lambda p: p.requires_grad, clip.parameters()),
+            filter(lambda p: p.requires_grad, teacher.parameters()),
             lr=args.c_learning_rate, weight_decay=args.c_weight_decay
         )
 
@@ -81,7 +81,7 @@ def main(args):
             T_max=args.num_epochs, eta_min=args.c_eta_min
         )
         trainer = OfflineKDTrainer(
-            model=clip, model_type='teacher',
+            model=teacher, model_type='teacher',
             train_loader=train_loader, val_loader=val_loader,
             optimizer=optimizer, scheduler=scheduler,
             device=device, args=args, run_name=run_name
@@ -94,7 +94,7 @@ def main(args):
             wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args)
 
         optimizer = torch.optim.AdamW(
-            model.parameters(), 
+            modestudentl.parameters(), 
             lr=args.m_learning_rate, weight_decay=args.m_weight_decay
         )
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -102,7 +102,7 @@ def main(args):
             T_max=args.num_epochs, eta_min=args.m_eta_min
         )
         trainer = OfflineKDTrainer(
-            model=model, model_type='student',
+            model=student, model_type='student',
             train_loader=train_loader, val_loader=val_loader,
             optimizer=optimizer, scheduler=scheduler,
             device=device, args=args, run_name=run_name
