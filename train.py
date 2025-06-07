@@ -52,11 +52,11 @@ def main(args):
 
         optimizer = torch.optim.AdamW(
             student.parameters(), 
-            lr=args.m_learning_rate, weight_decay=args.m_weight_decay
+            lr=args.s_learning_rate, weight_decay=args.s_weight_decay
         )
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, 
-            T_max=args.num_epochs, eta_min=args.m_eta_min
+            T_max=args.num_epochs, eta_min=args.s_eta_min
         )
         trainer = BasicTrainer(
             model=student, 
@@ -73,12 +73,12 @@ def main(args):
 
         optimizer = torch.optim.AdamW(
             filter(lambda p: p.requires_grad, teacher.parameters()),
-            lr=args.c_learning_rate, weight_decay=args.c_weight_decay
+            lr=args.t_learning_rate, weight_decay=args.t_weight_decay
         )
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, 
-            T_max=args.num_epochs, eta_min=args.c_eta_min
+            T_max=args.num_epochs, eta_min=args.t_eta_min
         )
         trainer = OfflineKDTrainer(
             model=teacher, model_type='teacher',
@@ -95,11 +95,11 @@ def main(args):
 
         optimizer = torch.optim.AdamW(
             modestudentl.parameters(), 
-            lr=args.m_learning_rate, weight_decay=args.m_weight_decay
+            lr=args.s_learning_rate, weight_decay=args.s_weight_decay
         )
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, 
-            T_max=args.num_epochs, eta_min=args.m_eta_min
+            T_max=args.num_epochs, eta_min=args.s_eta_min
         )
         trainer = OfflineKDTrainer(
             model=student, model_type='student',

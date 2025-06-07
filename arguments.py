@@ -32,26 +32,26 @@ def get_arguments():
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size for training")
     parser.add_argument('--num_epochs', type=int, default=25, help="Number of training epochs")
    
-    # -- CLIP model
-    parser.add_argument('--c_optimizer', type=str, default='AdamW', help="Opti mizer for CLIP model")
-    parser.add_argument('--c_scheduler', type=str, default='Cosine', help="Scheduler for CLIP model")
-    parser.add_argument('--c_learning_rate', type=float, default=1e-4, help="Learning rate for CLIP model")
-    parser.add_argument('--c_weight_decay', type=float, default=1e-5, help="Weight decay for CLIP model")
-    parser.add_argument('--c_eta_min', type=float, default=1e-5, help="Minimum LR for CLIP scheduler")
+    # -- CLIP model (Teacher)
+    parser.add_argument('--t_optimizer', type=str, default='AdamW', help="Opti mizer for CLIP model")
+    parser.add_argument('--t_scheduler', type=str, default='Cosine', help="Scheduler for CLIP model")
+    parser.add_argument('--t_learning_rate', type=float, default=1e-4, help="Learning rate for CLIP model")
+    parser.add_argument('--t_weight_decay', type=float, default=1e-5, help="Weight decay for CLIP model")
+    parser.add_argument('--t_eta_min', type=float, default=1e-5, help="Minimum LR for CLIP scheduler")
 
-    # -- CV model
-    parser.add_argument('--m_optimizer', type=str, default='AdamW', help="Optimizer for CV model")
-    parser.add_argument('--m_scheduler', type=str, default='Cosine', help="Scheduler for CV model")
-    parser.add_argument('--m_learning_rate', type=float, default=1e-4, help="Learning rate for CV model")
-    parser.add_argument('--m_weight_decay', type=float, default=1e-2, help="Weight decay for CV model")
-    parser.add_argument('--m_eta_min', type=float, default=1e-5, help="Minimum LR for CV scheduler")
+    # -- CV model (Student)
+    parser.add_argument('--s_optimizer', type=str, default='AdamW', help="Optimizer for CV model")
+    parser.add_argument('--s_scheduler', type=str, default='Cosine', help="Scheduler for CV model")
+    parser.add_argument('--s_learning_rate', type=float, default=1e-4, help="Learning rate for CV model")
+    parser.add_argument('--s_weight_decay', type=float, default=1e-2, help="Weight decay for CV model")
+    parser.add_argument('--s_eta_min', type=float, default=1e-5, help="Minimum LR for CV scheduler")
 
     # -- Loss
     parser.add_argument('--gender_smoothing', type=float, default=0.0, help="Label smoothing factor for gender classification")
     parser.add_argument('--race_smoothing', type=float, default=0.0, help="Label smoothing factor for race classification")
     parser.add_argument('--lambda_g', type=float, default=1, help="Weight for Gender Classification loss")
     parser.add_argument('--lambda_r', type=float, default=2, help="Weight for Race Classification loss") 
-    parser.add_argument('--lambda_t', type=float, default=10, help="Weight for Teacher loss, CLIP model's Align loss")
+    parser.add_argument('--lambda_t', type=float, default=1, help="Weight for Teacher loss, CLIP model's Align loss")
     parser.add_argument('--lambda_s', type=float, default=0, help="Weight for Student loss, CV models' KD lss")
 
     # -- Etc
