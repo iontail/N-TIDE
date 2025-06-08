@@ -20,7 +20,7 @@ class CLIP_Model(nn.Module):
             param.requires_grad = False
         self.model.eval()
 
-        # General prompt: "A photo of person"
+        # General-Text prompt: "A photo of person"
         with torch.no_grad():
             tokens = clip.tokenize(["A photo of a person"]).to(self.device)
             self.register_buffer("text_encoded", self.model.encode_text(tokens))  
@@ -50,7 +50,7 @@ class CLIP_Model(nn.Module):
             self.neutral_vector = nn.Parameter(init_vector.unsqueeze(0))
             
         # Fusion MLP
-        in_features = self.model.visual.output_dim # + self.model.text_projection.shape[1]
+        in_features = self.model.visual.output_dim # + self.model.text_projection.shape[1] 
         self.fusion_mlp = nn.Sequential(
             nn.Linear(in_features, args.feature_dim),
             nn.ReLU(),
@@ -91,26 +91,23 @@ class CLIP_Model(nn.Module):
             null_enc = self.null_encoded.expand(B, -1)
             null_enc = F.normalize(null_enc, dim=-1)
 
-            # fused_null = torch.cat([image_enc, null_enc], dim=1)
             fused_null = image_enc + null_enc
             fused_null = self.fusion_mlp(fused_null)
 
-        # A photo of a neutral -> A photo of a [Neutral vector]
-        neutral_embed = self.neutral_token_embed.expand(B, -1, -1).clone() 
-        neutral_embed[:, 5, :] = self.neutral_vector.expand(B, -1)   
+        # # A photo of a neutral -> A photo of a [Neutral vector]
+        # neutral_embed = self.neutral_token_embed.expand(B, -1, -1).clone() 
+        # neutral_embed[:, 5, :] = self.neutral_vector.expand(B, -1)   
 
-        # Neutral-text Encode and Fuse
-        neutral_enc = self._encode_neutral_text(neutral_embed)
-        neutral_enc = F.normalize(neutral_enc, dim=-1)
+        # # Neutral-text Encode and Fuse
+        # neutral_enc = self._encode_neutral_text(neutral_embed)
+        # neutral_enc = F.normalize(neutral_enc, dim=-1)
 
-        # fused_neutral = torch.cat([image_enc, neutral_enc], dim=1)
         fused_neutral = image_enc + neutral_enc
         fused_neutral = self.fusion_mlp(fused_neutral)
 
         # Classification Head
         gender_logits = self.gender_head(fused_neutral)
         race_logits = self.race_head(fused_neutral)
-
 
         return {
             'f_null': fused_null,
