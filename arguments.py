@@ -19,18 +19,16 @@ def get_arguments():
     parser.set_defaults(is_fairface_race_7=True)
     parser.add_argument('--is_fairface_race_4', dest='is_fairface_race_7', action='store_false', help='Use 4-class FairFace race classes')
 
-    # -- Augmentation
-    parser.add_argument('--train_transform_type', type=str, default='weak', choices=['strong', 'weak'], help="Training augmentation strategy")
-
     # Model config
-    parser.add_argument('--clip_null_text', type=str, default='', help="Text prompt for CLIP model (Default: Null-text)")
     parser.add_argument('--clip_backbone', type=str, default='RN50', help="Backbone used in CLIP model's image encoder")
+    parser.add_argument('--clip_text_prompt', type=str, default='', help="Text prompt for CLIP model (Default: Null-text)")
+    parser.add_argument('--neutral_init', type=str, choices=['random', 'person'], default='person', help="Init method for neutral vector: 'random' (CLIP-style) or 'person' (token from 'A photo of a person')")
     parser.add_argument('--feature_dim', type=int, default=512, help="Dimensionality of feature representation")
 
     # Train config
-    parser.add_argument('--train_mode', type=str, choices=['baseline', 'offline_teacher', 'offline_student'], default='offline_teacher', help="Training mode type")
+    parser.add_argument('--experiment_type', type=str, choices=['baseline', 'offline_teacher', 'offline_student'], default='offline_teacher', help="Experimnet training type")
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size for training")
-    parser.add_argument('--num_epochs', type=int, default=25, help="Number of training epochs")
+    parser.add_argument('--num_epochs', type=int, default=15, help="Number of training epochs")
    
     # -- CLIP model (Teacher)
     parser.add_argument('--t_optimizer', type=str, default='AdamW', help="Opti mizer for CLIP model")
@@ -42,16 +40,15 @@ def get_arguments():
     # -- CV model (Student)
     parser.add_argument('--s_optimizer', type=str, default='AdamW', help="Optimizer for CV model")
     parser.add_argument('--s_scheduler', type=str, default='Cosine', help="Scheduler for CV model")
+    parser.add_argument('--s_backbone_lr', type=float, default=1e-5, help="Learning rate for CV model's backbone")
     parser.add_argument('--s_learning_rate', type=float, default=1e-4, help="Learning rate for CV model")
-    parser.add_argument('--s_weight_decay', type=float, default=1e-1, help="Weight decay for CV model")
+    parser.add_argument('--s_weight_decay', type=float, default=1e-2, help="Weight decay for CV model")
     parser.add_argument('--s_eta_min', type=float, default=1e-5, help="Minimum LR for CV scheduler")
 
     # -- Loss
     parser.add_argument('--gender_smoothing', type=float, default=0.0, help="Label smoothing factor for gender classification")
     parser.add_argument('--race_smoothing', type=float, default=0.1, help="Label smoothing factor for race classification")
-    parser.add_argument('--lambda_g', type=float, default=1, help="Weight for Gender Classification loss")
-    parser.add_argument('--lambda_r', type=float, default=2, help="Weight for Race Classification loss") 
-    parser.add_argument('--lambda_t', type=float, default=0, help="Weight for Teacher loss, CLIP model's Align loss")
+    parser.add_argument('--lambda_t', type=float, default=0.25, help="Weight for Teacher loss, CLIP model's Align loss")
     parser.add_argument('--lambda_s', type=float, default=0, help="Weight for Student loss, CV models' KD lss")
 
     # -- Etc
@@ -60,6 +57,6 @@ def get_arguments():
     parser.set_defaults(use_wandb=True)
     parser.add_argument('--no_wandb', dest='use_wandb', action='store_false', help="Disable Wandb logging")
     parser.add_argument('--checkpoint_dir', type=str, default='./ckpt', help="Directory to save checkpoints")
-
+    
     args = parser.parse_args()
     return args

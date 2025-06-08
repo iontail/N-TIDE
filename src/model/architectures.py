@@ -22,7 +22,7 @@ class CLIP_Model(nn.Module):
 
         # Null-Text prompt: ""
         with torch.no_grad():
-            tokens = clip.tokenize([args.clip_null_text]).to(self.device)
+            tokens = clip.tokenize([args.clip_text_prompt]).to(self.device)
             self.register_buffer("null_encoded", self.model.encode_text(tokens))  
              
         # Neutral-Text prompt: "A photo of a [Neutral vector]"
@@ -31,20 +31,25 @@ class CLIP_Model(nn.Module):
             self.register_buffer("neutral_token_embed", self.model.token_embedding(tokens)) 
 
         # Initialize [Neutral vector]
-        self.neutral_vector = nn.Parameter(torch.empty(1, self.model.token_embedding.embedding_dim))
-        nn.init.normal_(self.neutral_vector, mean=0.0, std=0.02)
-        # with torch.no_grad():
-        #     tokens = clip.tokenize(["A photo of a person"]).to(device)
-        #     token_embed = self.model.token_embedding(tokens)
-        # self.neutral_vector = nn.Parameter(token_embed[0, 5].clone())
-        
+        if args.neutral_init == 'random':
+            self.neutral_vector = nn.Parameter(
+                torch.empty(1, self.model.token_embedding.embedding_dim)
+            )
+            nn.init.normal_(self.neutral_vector, mean=0.0, std=0.02)
+
+        elif args.neutral_init == 'person':
+            with torch.no_grad():
+                tokens = clip.tokenize(["A photo of a person"]).to(device)
+                token_embed = self.model.token_embedding(tokens)
+                init_vector = token_embed[0, 5].clone()
+            self.neutral_vector = nn.Parameter(init_vector.unsqueeze(0))
+            
         # Fusion MLP
+        in_features = self.model.visual.output_dim + self.model.text_projection.shape[1]
         self.fusion_mlp = nn.Sequential(
-            nn.Linear(self.model.visual.output_dim + self.model.text_projection.shape[1], args.feature_dim * 2),
+            nn.Linear(in_features, in_features // 2),
             nn.ReLU(),
-            nn.Linear(args.feature_dim * 2, args.feature_dim),
-            nn.ReLU(),
-            nn.Linear(args.feature_dim, args.feature_dim)
+            nn.Linear(in_features // 2, args.feature_dim)
         )
 
         # Classification Head
@@ -116,7 +121,11 @@ class ResNet_Model(nn.Module):
 
         # ResNet 
         self.model = models.resnet50(weights='IMAGENET1K_V2')
-        self.model.fc = nn.Linear(self.model.fc.in_features, args.feature_dim)
+        in_features = self.model.fc.in_features
+        self.model.fc = nn.Identity()
+        
+        # Projection
+        self.projection = nn.Linear(in_features, args.feature_dim)
 
         # Classification Head 
         self.gender_head = nn.Linear(args.feature_dim, gender_classes)
@@ -125,6 +134,7 @@ class ResNet_Model(nn.Module):
     def forward(self, x):
         # Image Encode
         features = self.model(x)
+        features = self.projection(features)
         
         # Classification Head
         gender_logits = self.gender_head(features)

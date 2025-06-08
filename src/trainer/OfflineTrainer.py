@@ -11,7 +11,7 @@ from src.model.get_models import get_models
 from src.utils.bias_metrics import compute_bias_metrics
 
 class OfflineKDTrainer:
-    def __init__(self, model, model_type, train_loader, val_loader,
+    def __init__(self, model, train_loader, val_loader,
                  optimizer, scheduler, device, args, run_name):
         self.args = args
         self.device = device
@@ -22,7 +22,6 @@ class OfflineKDTrainer:
         self.num_epochs = self.args.num_epochs  
         
         self.model = model 
-        self.model_type = model_type  # "teacher" or "student"
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.gender_criterion = nn.CrossEntropyLoss(label_smoothing=self.args.gender_smoothing)
@@ -32,7 +31,7 @@ class OfflineKDTrainer:
         self.checkpoint_dir = os.path.join(self.args.checkpoint_dir, run_name)
         os.makedirs(self.checkpoint_dir, exist_ok=True)
 
-        if self.model_type == 'student': 
+        if self.args.experiment_type == 'offline_student': 
             self.teacher, _ = get_models(self.args, self.device)
             self.teacher.load_state_dict(torch.load("# -- 수정 필요 -- #")['model'])
             self.teacher = self.teacher.to(device)
@@ -55,27 +54,25 @@ class OfflineKDTrainer:
         losses["cls_gender_loss"] = cls_g_loss
         losses["cls_race_loss"] = cls_r_loss
 
-        if self.model_type == 'teacher':
-            # Alignment Loss
-            # Neutral-text embeddings <-> Null-text embeddings (MSE)
+        if self.args.experiment_type == 'offline_teacher':
+            # Alignment Loss (MSE)
             align_loss = F.mse_loss(outputs['features'], outputs['f_null'].detach())
             losses["feature_loss"] = align_loss
 
             # Teacher's Total Loss
-            losses["total_loss"] = self.args.lambda_g * cls_g_loss + self.args.lambda_r * cls_r_loss + self.args.lambda_t * align_loss
+            losses["total_loss"] = cls_g_loss + cls_r_loss + self.args.lambda_t * align_loss
 
-        elif self.model_type == 'student': 
-            # Knowledge Distillation Loss
-            # Teacher's features <-> Student's features (Cosine Similarity)
+        elif self.args.experiment_type == 'offline_student': 
+            # Knowledge Distillation Loss (Cosine Similarity)
             with torch.no_grad():
-                clip_outputs = self.teacher(images)
+                teacher_outputs = self.teacher(images)
 
-            cosine_sim = F.cosine_similarity(outputs["features"], clip_outputs["features"].detach(), dim=-1)
+            cosine_sim = F.cosine_similarity(outputs["features"], teacher_outputs["features"].detach(), dim=-1)
             kd_loss = 1 - cosine_sim.mean()
             losses["feature_loss"] = kd_loss
 
             # Student's Total Loss
-            losses["total_loss"] = self.args.lambda_g * cls_g_loss + self.args.lambda_r * cls_r_loss + self.args.lambda_s * kd_loss
+            losses["total_loss"] = cls_g_loss + cls_r_loss + self.args.lambda_s * kd_loss
             
         return losses, outputs
     
@@ -196,7 +193,7 @@ class OfflineKDTrainer:
         for k, v in gender_race_results.items():
             eval_log[f"eval_gender_race/{k}"] = v
         for k, v in race_gender_results.items():
-            eval_log[f"eval_race_gender/{k}/"] = v
+            eval_log[f"eval_race_gender/{k}/"] = v ### 수정 필요.
         
         return eval_log
 
@@ -208,7 +205,7 @@ class OfflineKDTrainer:
             "optimizer": self.optimizer.state_dict(),
         }
         
-        checkpoint_path = os.path.join(self.checkpoint_dir, f"N-TIDE_{self.model_type}_E{epoch}.pt")
+        checkpoint_path = os.path.join(self.checkpoint_dir, f"N-TIDE_{self.args.experiment_type}_E{epoch}.pt")
         torch.save(checkpoint, checkpoint_path)
         return checkpoint_path  
 

@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 from itertools import combinations
 
 def compute_bias_metrics(logits, labels, group_labels, features):
@@ -53,7 +54,8 @@ def compute_bias_metrics(logits, labels, group_labels, features):
             mu[g.item()] = features[masks[g.item()]].mean(dim=0)
 
         for g1, g2 in combinations(groups.tolist(), 2):
-            dist = torch.norm(mu[g1] - mu[g2], p=2).item()
+            # dist = torch.norm(mu[g1] - mu[g2], p=2).item()
+            dist = 1 - F.cosine_similarity(mu[g1], mu[g2], dim=0).item()
             if dist > representation_bias_dist:
                 representation_bias_dist = dist
                 

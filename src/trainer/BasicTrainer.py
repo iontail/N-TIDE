@@ -43,7 +43,7 @@ class BasicTrainer:
         cls_r_loss = self.race_criterion(outputs['race_logits'], race_labels)
 
         # Total Loss
-        total_loss = self.args.lambda_g * cls_g_loss + self.args.lambda_r * cls_r_loss
+        total_loss = cls_g_loss + cls_r_loss
 
         # Logging 
         losses = {}
