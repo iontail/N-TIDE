@@ -33,7 +33,7 @@ class OfflineKDTrainer:
 
         if self.args.experiment_type == 'offline_student': 
             self.teacher, _ = get_models(self.args, self.device)
-            self.teacher.load_state_dict(torch.load("# -- 수정 필요 -- #")['model'])
+            self.teacher.load_state_dict(torch.load("ckpt/N-TIDE_Teacher_0608_1338/N-TIDE_offline_teacher_E10.pt")['model'])
             self.teacher = self.teacher.to(device)
             self.teacher.eval()
 
@@ -235,7 +235,7 @@ class OfflineKDTrainer:
                     **{f"epoch/{k}": v for k, v in eval_log.items() if k.startswith("eval_race_gender/")}
                 })
 
-            if (epoch + 1) % 5 == 0 or (epoch + 1) == self.num_epochs:
+            if (epoch + 1) % 3 == 0 or (epoch + 1) == self.num_epochs:
                 checkpoint_path = self.save_checkpoint(epoch + 1)
                 if self.args.use_wandb:
                     artifact.add_file(checkpoint_path)
