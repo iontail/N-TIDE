@@ -60,7 +60,7 @@ class OfflineKDTrainer:
             losses["feature_loss"] = align_loss
 
             # Teacher's Total Loss
-            losses["total_loss"] = cls_g_loss + cls_r_loss + self.args.lambda_t * align_loss
+            losses["total_loss"] = self.args.lambda_g * cls_g_loss + self.args.lambda_r * cls_r_loss + self.args.lambda_t * align_loss
 
         elif self.args.experiment_type == 'offline_student': 
             # Knowledge Distillation Loss (Cosine Similarity)
@@ -72,7 +72,7 @@ class OfflineKDTrainer:
             losses["feature_loss"] = kd_loss
 
             # Student's Total Loss
-            losses["total_loss"] = cls_g_loss + cls_r_loss + self.args.lambda_s * kd_loss
+            losses["total_loss"] = self.args.lambda_g * cls_g_loss + self.args.lambda_r * cls_r_loss + self.args.lambda_s * kd_loss
             
         return losses, outputs
     
@@ -193,7 +193,7 @@ class OfflineKDTrainer:
         for k, v in gender_race_results.items():
             eval_log[f"eval_gender_race/{k}"] = v
         for k, v in race_gender_results.items():
-            eval_log[f"eval_race_gender/{k}/"] = v ### 수정 필요.
+            eval_log[f"eval_race_gender/{k}/"] = v 
         
         return eval_log
 
@@ -223,16 +223,16 @@ class OfflineKDTrainer:
                     "epoch/train_loss": train_log['train_loss'],
                     'epoch/train_feature_loss': train_log['train_feature_loss'],
                     "epoch/train_gender_acc": train_log['train_gender_acc'],
-                    "epoch/train_race_acc": train_log['train_race_acc'],
+                    # "epoch/train_race_acc": train_log['train_race_acc'],
 
                     'epoch/eval_loss': eval_log['eval_loss'],
                     'epoch/eval_feature_loss': eval_log['eval_feature_loss'],
                     'epoch/eval_gender_acc': eval_log['eval_gender_acc'],
-                    'epoch/eval_race_acc': eval_log['eval_race_acc'],
+                    # 'epoch/eval_race_acc': eval_log['eval_race_acc'],
 
                     # Bias metrics
                     **{f"epoch/{k}": v for k, v in eval_log.items() if k.startswith("eval_gender_race/")},
-                    **{f"epoch/{k}": v for k, v in eval_log.items() if k.startswith("eval_race_gender/")}
+                    # **{f"epoch/{k}": v for k, v in eval_log.items() if k.startswith("eval_race_gender/")}
                 })
 
             if (epoch + 1) % 2 == 0 or (epoch + 1) == self.num_epochs:

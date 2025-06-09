@@ -91,16 +91,19 @@ class CLIP_Model(nn.Module):
             null_enc = self.null_encoded.expand(B, -1)
             null_enc = F.normalize(null_enc, dim=-1)
 
-            fused_null = image_enc + null_enc
+            fused_null = image_enc + null_enc   
             fused_null = self.fusion_mlp(fused_null)
 
-        # # A photo of a neutral -> A photo of a [Neutral vector]
-        # neutral_embed = self.neutral_token_embed.expand(B, -1, -1).clone() 
-        # neutral_embed[:, 5, :] = self.neutral_vector.expand(B, -1)   
+            # neutral_enc = self.text_encoded.expand(B, -1)
+            # neutral_enc = F.normalize(neutral_enc, dim=-1)
 
-        # # Neutral-text Encode and Fuse
-        # neutral_enc = self._encode_neutral_text(neutral_embed)
-        # neutral_enc = F.normalize(neutral_enc, dim=-1)
+        # A photo of a neutral -> A photo of a [Neutral vector]
+        neutral_embed = self.neutral_token_embed.expand(B, -1, -1).clone() 
+        neutral_embed[:, 5, :] = self.neutral_vector.expand(B, -1)   
+
+        # Neutral-text Encode and Fuse
+        neutral_enc = self._encode_neutral_text(neutral_embed)
+        neutral_enc = F.normalize(neutral_enc, dim=-1)
 
         fused_neutral = image_enc + neutral_enc
         fused_neutral = self.fusion_mlp(fused_neutral)

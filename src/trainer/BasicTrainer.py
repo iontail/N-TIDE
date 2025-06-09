@@ -43,7 +43,7 @@ class BasicTrainer:
         cls_r_loss = self.race_criterion(outputs['race_logits'], race_labels)
 
         # Total Loss
-        total_loss = cls_g_loss + cls_r_loss
+        total_loss = self.args.lambda_g * cls_g_loss + self.args.lambda_r * cls_r_loss
 
         # Logging 
         losses = {}
@@ -190,15 +190,15 @@ class BasicTrainer:
                 wandb.log({
                     "epoch": epoch + 1,
                     "epoch/train_loss": train_log['train_loss'],
-                    "epoch/train_gender_acc": train_log['train_gender_acc'],
+                    # "epoch/train_gender_acc": train_log['train_gender_acc'],
                     "epoch/train_race_acc": train_log['train_race_acc'],
                     
                     'epoch/eval_loss': eval_log['eval_loss'],
-                    'epoch/eval_gender_acc': eval_log['eval_gender_acc'],
+                    # 'epoch/eval_gender_acc': eval_log['eval_gender_acc'],
                     'epoch/eval_race_acc': eval_log['eval_race_acc'],
                     
                     # Bias metrics
-                    **{f"epoch/{k}": v for k, v in eval_log.items() if k.startswith("eval_gender_race/")},
+                    # **{f"epoch/{k}": v for k, v in eval_log.items() if k.startswith("eval_gender_race/")},
                     **{f"epoch/{k}": v for k, v in eval_log.items() if k.startswith("eval_race_gender/")}
                 })
 
