@@ -13,7 +13,7 @@ from arguments import get_arguments
 from src.dataset.get_dataset import get_dataset
 from src.model.get_models import get_models
 from src.trainer.BasicTrainer import BasicTrainer
-from src.trainer.OfflineTrainer import OfflineKDTrainer
+from src.trainer.OfflineKDTrainer import OfflineKDTrainer
 
 def set_seed(seed):
     random.seed(seed)
