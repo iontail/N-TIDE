@@ -10,6 +10,11 @@ import torch.nn.functional as F
 from src.model.get_models import get_models
 from src.utils.bias_metrics import compute_bias_metrics
 
+
+# =========================== ⚠️ IMPORTANT =========================
+# TODO: use args.bias_attribute to set target_attribute automatically 
+# ===================================================================
+
 class OfflineKDTrainer:
     def __init__(self, model, train_loader, val_loader,
                  optimizer, scheduler, device, args, run_name):
@@ -33,7 +38,8 @@ class OfflineKDTrainer:
 
         if self.args.experiment_type == 'offline_student': 
             self.teacher, _ = get_models(self.args, self.device)
-            self.teacher.load_state_dict(torch.load("ckpt/N-TIDE_Teacher_0608_1651/N-TIDE_offline_teacher_E10.pt")['model'])
+            # 코드 수정 필요.
+            self.teacher.load_state_dict(torch.load(args.teacher_ckpt_path)['model'])
             self.teacher = self.teacher.to(device)
             self.teacher.eval()
 
@@ -45,7 +51,7 @@ class OfflineKDTrainer:
         # Forward 
         outputs = self.model(images)
 
-        # Classification Loss (Gender, Race)
+        # Classification Loss (Gender, Race) 
         cls_g_loss = self.gender_criterion(outputs['gender_logits'], gender_labels)
         cls_r_loss = self.race_criterion(outputs['race_logits'], race_labels)
         
@@ -193,7 +199,7 @@ class OfflineKDTrainer:
         for k, v in gender_race_results.items():
             eval_log[f"eval_gender_race/{k}"] = v
         for k, v in race_gender_results.items():
-            eval_log[f"eval_race_gender/{k}/"] = v 
+            eval_log[f"eval_race_gender/{k}/"] = v # 수정 필요 
         
         return eval_log
 
@@ -210,13 +216,12 @@ class OfflineKDTrainer:
         return checkpoint_path  
 
     def train(self):
-        if self.args.use_wandb:
+        if self.args.use_wandb: # 수정 필요 - 삭제
             artifact = wandb.Artifact(name=self.run_name, type="model")
 
         for epoch in range(self.num_epochs):
             train_log, eval_log = self.train_epoch(epoch)
             
-
             if self.args.use_wandb:
                 wandb.log({
                     "epoch": epoch + 1,
@@ -237,9 +242,10 @@ class OfflineKDTrainer:
 
             if (epoch + 1) % 2 == 0 or (epoch + 1) == self.num_epochs:
                 checkpoint_path = self.save_checkpoint(epoch + 1)
+
+        # 수정 필요 - 삭제
                 if self.args.use_wandb:
                     artifact.add_file(checkpoint_path)
-                    
         if self.args.use_wandb:
             wandb.log_artifact(artifact)
                 

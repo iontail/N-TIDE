@@ -5,6 +5,10 @@ import torch.nn.functional as F
 import clip
 from torchvision import models
 
+# =========================== ⚠️ IMPORTANT =========================
+# TODO: use args.bias_attribute to set target_attribute automatically 
+# ===================================================================
+
 class CLIP_Model(nn.Module):
     def __init__(self, num_classes, args, device):
         super().__init__()

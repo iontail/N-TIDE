@@ -29,6 +29,7 @@ def get_arguments():
     parser.add_argument('--experiment_type', type=str, choices=['baseline', 'offline_teacher', 'offline_student'], default='offline_teacher', help="Experimnet training type")
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size for training")
     parser.add_argument('--num_epochs', type=int, default=15, help="Number of training epochs")
+    parser.add_argument('--bias_attribute', type=str, choices=['gender', 'race'], default='race', help="Attribute to analyze for bias; the other attribute will be used as the classification target")
    
     # -- CLIP model (Teacher)
     parser.add_argument('--t_optimizer', type=str, default='AdamW', help="Opti mizer for CLIP model")
@@ -48,8 +49,8 @@ def get_arguments():
     # -- Loss
     parser.add_argument('--gender_smoothing', type=float, default=0.0, help="Label smoothing factor for gender classification")
     parser.add_argument('--race_smoothing', type=float, default=0.1, help="Label smoothing factor for race classification")
-    parser.add_argument('--lambda_g', type=float, default=1, help="Weight for Gender Cls loss")
-    parser.add_argument('--lambda_r', type=float, default=0, help="Weight for Race Cls loss")
+    parser.add_argument('--lambda_g', type=float, default=1, help="Weight for Gender Classification loss")
+    parser.add_argument('--lambda_r', type=float, default=0, help="Weight for Race Classification loss")
     parser.add_argument('--lambda_t', type=float, default=0, help="Weight for Teacher loss, CLIP model's Align loss")
     parser.add_argument('--lambda_s', type=float, default=0, help="Weight for Student loss, CV models' KD lss")
 
@@ -59,6 +60,11 @@ def get_arguments():
     parser.set_defaults(use_wandb=True)
     parser.add_argument('--no_wandb', dest='use_wandb', action='store_false', help="Disable Wandb logging")
     parser.add_argument('--checkpoint_dir', type=str, default='./ckpt', help="Directory to save checkpoints")
+    parser.add_argument('--teacher_ckpt_path', type=str, default=None, help="Path to teacher model checkpoint (required for training student)")
     
     args = parser.parse_args()
+    
+    if args.experiment_type == 'offline_student' and args.teacher_ckpt_path is None:
+        parser.error("'teacher_ckpt_path' must be specified when 'experiment_type' is 'offline_student'")
+
     return args
