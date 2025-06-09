@@ -52,9 +52,8 @@ def main(args):
 
         optimizer = torch.optim.AdamW([
             {'params': student.model.parameters(), 'lr': args.s_backbone_lr},
-            {'params': student.projection.parameters(), 'lr': args.s_learning_rate},
-            {'params': student.gender_head.parameters(), 'lr': args.s_learning_rate},
-            {'params': student.race_head.parameters(), 'lr': args.s_learning_rate},
+            {'params': student.proj.parameters(), 'lr': args.s_learning_rate},
+            {'params': student.head.parameters(), 'lr': args.s_learning_rate},
             ], weight_decay=args.s_weight_decay)
             
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -97,9 +96,8 @@ def main(args):
 
         optimizer = torch.optim.AdamW([
             {'params': student.model.parameters(), 'lr': args.s_backbone_lr},
-            {'params': student.projection.parameters(), 'lr': args.s_learning_rate},
-            {'params': student.gender_head.parameters(), 'lr': args.s_learning_rate},
-            {'params': student.race_head.parameters(), 'lr': args.s_learning_rate},
+            {'params': student.proj.parameters(), 'lr': args.s_learning_rate},
+            {'params': student.head.parameters(), 'lr': args.s_learning_rate},
             ], weight_decay=args.s_weight_decay)
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(

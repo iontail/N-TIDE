@@ -5,16 +5,11 @@ import torch.nn.functional as F
 import clip
 from torchvision import models
 
-# =========================== ⚠️ IMPORTANT =========================
-# TODO: use args.bias_attribute to set target_attribute automatically 
-# ===================================================================
-
 class CLIP_Model(nn.Module):
     def __init__(self, num_classes, args, device):
         super().__init__()
         self.args = args    
         self.device = device
-        gender_classes, race_classes = num_classes
 
         # CLIP (Freeze)
         self.model, _ = clip.load(args.clip_backbone, device=self.device) 
@@ -55,15 +50,14 @@ class CLIP_Model(nn.Module):
             
         # Fusion MLP
         in_features = self.model.visual.output_dim # + self.model.text_projection.shape[1] 
-        self.fusion_mlp = nn.Sequential(
+        self.fusion = nn.Sequential(
             nn.Linear(in_features, args.feature_dim),
             nn.ReLU(),
             nn.Linear(args.feature_dim, args.feature_dim)
         )
 
         # Classification Head
-        self.gender_head = nn.Linear(args.feature_dim, gender_classes)
-        self.race_head = nn.Linear(args.feature_dim, race_classes)
+        self.head = nn.Linear(args.feature_dim, num_classes)
 
     def train(self, mode: bool = True):
         super().train(mode)
@@ -96,7 +90,7 @@ class CLIP_Model(nn.Module):
             null_enc = F.normalize(null_enc, dim=-1)
 
             fused_null = image_enc + null_enc   
-            fused_null = self.fusion_mlp(fused_null)
+            fused_null = self.fusion(fused_null)
 
             # neutral_enc = self.text_encoded.expand(B, -1)
             # neutral_enc = F.normalize(neutral_enc, dim=-1)
@@ -110,17 +104,15 @@ class CLIP_Model(nn.Module):
         neutral_enc = F.normalize(neutral_enc, dim=-1)
 
         fused_neutral = image_enc + neutral_enc
-        fused_neutral = self.fusion_mlp(fused_neutral)
+        fused_neutral = self.fusion(fused_neutral)
 
         # Classification Head
-        gender_logits = self.gender_head(fused_neutral)
-        race_logits = self.race_head(fused_neutral)
+        logits = self.head(fused_neutral)
 
         return {
             'f_null': fused_null,
             'features': fused_neutral,
-            'gender_logits': gender_logits,
-            'race_logits': race_logits,
+            'logits': logits
         }
     
 
@@ -129,7 +121,6 @@ class ResNet_Model(nn.Module):
     def __init__(self, num_classes, args):
         super().__init__()
         self.args = args
-        gender_classes, race_classes = num_classes
 
         # ResNet 
         self.model = models.resnet50(weights='IMAGENET1K_V2')
@@ -137,23 +128,20 @@ class ResNet_Model(nn.Module):
         self.model.fc = nn.Identity()
         
         # Projection
-        self.projection = nn.Linear(in_features, args.feature_dim)
+        self.proj = nn.Linear(in_features, args.feature_dim)
 
         # Classification Head 
-        self.gender_head = nn.Linear(args.feature_dim, gender_classes)
-        self.race_head = nn.Linear(args.feature_dim, race_classes)
+        self.head = nn.Linear(args.feature_dim, num_classes)
 
     def forward(self, x):
         # Image Encode
         features = self.model(x)
-        features = self.projection(features)
+        features = self.proj(features)
         
         # Classification Head
-        gender_logits = self.gender_head(features)
-        race_logits = self.race_head(features)
+        logits = self.head(features)
 
         return {
             'features': features,
-            'gender_logits': gender_logits,
-            'race_logits': race_logits,
+            'logits': logits
         }
