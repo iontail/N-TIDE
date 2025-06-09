@@ -146,6 +146,7 @@ class BasicTrainer:
         return checkpoint_path  
 
     def train(self):
+        # 수정 필요 - 삭제
         if self.args.use_wandb:
             artifact = wandb.Artifact(name=self.run_name, type="model")
 
@@ -161,13 +162,15 @@ class BasicTrainer:
                     "epoch/eval_loss": eval_log['eval_loss'],
                     f"epoch/eval_{self.target_attr}_acc": eval_log['eval_acc'],
 
-                    **{f"epoch/{k}": v for k, v in eval_log.items() if k.startswith("eval_bias/")}
+                    **{f"epoch/{k}": v for k, v in eval_log.items() 
+                    if k.startswith(f"eval_{self.args.bias_attribute}_bias/")}
                 })
 
             if (epoch + 1) % 5 == 0 or (epoch + 1) == self.num_epochs:
                 checkpoint_path = self.save_checkpoint(epoch + 1)
+        
+        # 수정 필요 - 삭제
                 if self.args.use_wandb:
                     artifact.add_file(checkpoint_path)
-
         if self.args.use_wandb:
             wandb.log_artifact(artifact)

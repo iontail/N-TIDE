@@ -201,7 +201,8 @@ class OfflineKDTrainer:
                     "epoch/eval_feature_loss": eval_log['eval_feature_loss'],
                     f"epoch/eval_{self.target_attr}_acc": eval_log['eval_acc'],
 
-                    **{f"epoch/{k}": v for k, v in eval_log.items() if k.startswith("eval_bias/")}
+                    **{f"epoch/{k}": v for k, v in eval_log.items() 
+                    if k.startswith(f"eval_{self.args.bias_attribute}_bias/")}
                 })
 
             if (epoch + 1) % 2 == 0 or (epoch + 1) == self.num_epochs:
