@@ -146,10 +146,6 @@ class BasicTrainer:
         return checkpoint_path  
 
     def train(self):
-        # 수정 필요 - 삭제
-        if self.args.use_wandb:
-            artifact = wandb.Artifact(name=self.run_name, type="model")
-
         for epoch in range(self.num_epochs):
             train_log, eval_log = self.train_epoch(epoch)
 
@@ -168,9 +164,3 @@ class BasicTrainer:
 
             if (epoch + 1) % 5 == 0 or (epoch + 1) == self.num_epochs:
                 checkpoint_path = self.save_checkpoint(epoch + 1)
-        
-        # 수정 필요 - 삭제
-                if self.args.use_wandb:
-                    artifact.add_file(checkpoint_path)
-        if self.args.use_wandb:
-            wandb.log_artifact(artifact)
