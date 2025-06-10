@@ -92,16 +92,16 @@ def main(args):
 
     # Wandb Logging
     if args.use_wandb:
-        wandb.init(project='Intro-to-DL-N-TIDE', id=" ", resume='must')  # id: 지정 필요.
+        run_name = "N-TIDE (ours)"
+        wandb.init(project='Intro-to-DL-N-TIDE-Infer', name=run_name, config=args)
 
         wandb.log({
             # Accuracy
-            f"infer/{target_attr}_acc": infer_log['infer_acc'],
+            f"Inference/{target_attr}_acc": infer_log['infer_acc'],
             # Bias metrics
-            **{f"infer/{k}": v for k, v in infer_log.items() 
+            **{f"Inference/{k}": v for k, v in infer_log.items() 
             if k.startswith(f"{args.bias_attribute}_bias/")},
         })
-
 
 if __name__ == "__main__":
     args = get_arguments()

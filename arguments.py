@@ -62,7 +62,7 @@ def get_arguments():
 
     args = parser.parse_args()
     
-    if args.experiment_type == 'offline_student' and args.teacher_ckpt_path is None:
+    if args.is_train and args.experiment_type == 'offline_student' and args.teacher_ckpt_path is None:
         parser.error("'teacher_ckpt_path' must be specified when 'experiment_type' is 'offline_student'")
 
     if not args.is_train and args.infer_ckpt_path is None:
