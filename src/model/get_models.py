@@ -18,7 +18,6 @@ def get_models(args, device):
         elif args.dataset_name == "FairFace" and not args.is_fairface_race_7:
             num_classes = 4
 
-    print("num classes:", num_classes) # 수정 필요 - 삭제 
     clip = CLIP_Model(num_classes, args, device)
     resnet = ResNet_Model(num_classes, args)
     return clip, resnet
