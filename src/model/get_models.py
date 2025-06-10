@@ -1,4 +1,4 @@
-from src.model.architectures import CLIP_Model, ResNet_Model
+from src.model.debiasing_models import CLIP_Model, ResNet_Model
 
 def get_models(args, device):
     target_attr = 'gender' if args.bias_attribute == 'race' else 'race'

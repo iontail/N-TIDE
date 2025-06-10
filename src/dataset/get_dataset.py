@@ -54,7 +54,7 @@ def get_dataset(args):
         df = full_train_data.to_pandas()
         test_df = test_data.to_pandas()
 
-        if not args.is_fairface_race_7:
+        if not args.is_fairface_race_7: # 4-class
             df = df[df["race"].isin([0, 1, 2, 3])]
             test_df = test_df[test_df["race"].isin([0, 1, 2, 3])]
 
