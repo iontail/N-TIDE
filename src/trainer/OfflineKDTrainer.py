@@ -205,7 +205,7 @@ class OfflineKDTrainer:
                     if k.startswith(f"eval_{self.args.bias_attribute}_bias/")}
                 })
 
-            if (epoch + 1) % 2 == 0 or (epoch + 1) == self.num_epochs:
+            if (epoch + 1) % 3 == 0 or (epoch + 1) == self.num_epochs:
                 checkpoint_path = self.save_checkpoint(epoch + 1)
 
         # 수정 필요 - 삭제

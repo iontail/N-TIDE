@@ -21,7 +21,6 @@ def get_arguments():
 
     # Model config
     parser.add_argument('--clip_backbone', type=str, default='RN50', help="Backbone used in CLIP model's image encoder")
-    parser.add_argument('--clip_text_prompt', type=str, default='', help="Text prompt for CLIP model (Default: Null-text)")
     parser.add_argument('--neutral_init', type=str, choices=['random', 'person'], default='person', help="Init method for neutral vector: 'random' (CLIP-style) or 'person' (token from 'A photo of a person')")
     parser.add_argument('--feature_dim', type=int, default=512, help="Dimensionality of feature representation")
 
@@ -59,10 +58,14 @@ def get_arguments():
     parser.add_argument('--no_wandb', dest='use_wandb', action='store_false', help="Disable Wandb logging")
     parser.add_argument('--checkpoint_dir', type=str, default='./ckpt', help="Directory to save checkpoints")
     parser.add_argument('--teacher_ckpt_path', type=str, default=None, help="Path to teacher model checkpoint (required for training student)")
-    
+    parser.add_argument('--infer_ckpt_path', type=str, default=None, help="Path to model checkpoint for inference (required for test mode)")
+
     args = parser.parse_args()
     
     if args.experiment_type == 'offline_student' and args.teacher_ckpt_path is None:
         parser.error("'teacher_ckpt_path' must be specified when 'experiment_type' is 'offline_student'")
 
+    if not args.is_train and args.infer_ckpt_path is None:
+        parser.error("'infer_ckpt_path' must be specified when running in test mode (is_train=False)")
+        
     return args

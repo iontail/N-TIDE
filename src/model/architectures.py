@@ -19,20 +19,18 @@ class CLIP_Model(nn.Module):
             param.requires_grad = False
         self.model.eval()
 
-        # General-Text prompt: "A photo of person"
         with torch.no_grad():
+            # General-Text prompt: "A photo of a person"
             tokens = clip.tokenize(["A photo of a person"]).to(self.device)
-            self.register_buffer("text_encoded", self.model.encode_text(tokens))  
+            self.register_buffer("text_encoded", self.model.encode_text(tokens))
 
-        # Null-Text prompt: ""
-        with torch.no_grad():
-            tokens = clip.tokenize([args.clip_text_prompt]).to(self.device)
-            self.register_buffer("null_encoded", self.model.encode_text(tokens))  
-             
-        # Neutral-Text prompt: "A photo of a [Neutral vector]"
-        with torch.no_grad():
-            tokens = clip.tokenize(["A photo of a neutral"]).to(device)
-            self.register_buffer("neutral_token_embed", self.model.token_embedding(tokens)) 
+            # Null-Text prompt: ""
+            tokens = clip.tokenize([""]).to(self.device)
+            self.register_buffer("null_encoded", self.model.encode_text(tokens))
+
+            # Neutral-Text prompt: "A photo of a neutral" -> "A photo of a [Neutral vector]"
+            tokens = clip.tokenize(["A photo of a neutral"]).to(self.device)
+            self.register_buffer("neutral_token_embed", self.model.token_embedding(tokens))
 
         # Initialize [Neutral vector]
         if args.neutral_init == 'random':
@@ -49,7 +47,7 @@ class CLIP_Model(nn.Module):
             self.neutral_vector = nn.Parameter(init_vector.unsqueeze(0))
             
         # Fusion MLP
-        in_features = self.model.visual.output_dim # + self.model.text_projection.shape[1] 
+        in_features = self.model.visual.output_dim 
         self.fusion = nn.Sequential(
             nn.Linear(in_features, args.feature_dim),
             nn.ReLU(),

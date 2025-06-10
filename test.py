@@ -6,12 +6,14 @@ warnings.filterwarnings("ignore")
 import random
 import numpy as np
 import torch
+import wandb
 from tqdm import tqdm
 from collections import defaultdict
 
 from arguments import get_arguments
 from src.dataset.get_dataset import get_dataset
-from src.model.get_model import get_model
+from src.model.get_models import get_models
+from src.utils.bias_metrics import compute_bias_metrics
 
 def set_seed(seed):
     random.seed(seed)
@@ -34,79 +36,68 @@ def main(args):
         num_workers=num_workers, persistent_workers=True
     )
 
-    _, model = get_models(args, device)
-    model.load_state_dict(torch.load(" ")['model']) # 지정 필요.
+    # Baseline Model or Student Model 
+    _, model = get_models(args, device) 
+    
+    # Teacher Model
+    # model, _ = get_models(args, device)
+
+    model.load_state_dict(torch.load(args.infer_ckpt_path)['model']) 
     model = model.to(device)
     model.eval()
 
     bias_data = defaultdict(list)
-    gender_correct, race_correct, total = 0, 0, 0
+    correct, total = 0, 0
 
+    target_attr = 'gender' if args.bias_attribute == 'race' else 'race'
     with torch.no_grad():
         for images, labels in tqdm(test_loader, desc='Inference'):
             images, labels = images.to(device), labels.to(device)
-            gender_labels, race_labels = labels[:, 1], labels[:, 2]
+
+            target_labels = labels[:, 1] if target_attr == 'gender' else labels[:, 2]
+            group_labels = labels[:, 2] if target_attr == 'gender' else labels[:, 1]
 
             # Forward 
             outputs = model(images)
 
             # Compute Accuracy 
-            gender_preds = outputs['gender_logits'].argmax(dim=1)
-            race_preds = outputs['race_logits'].argmax(dim=1)
-            g_correct = (gender_preds == gender_labels).sum().item()
-            r_correct = (race_preds == race_labels).sum().item()
-
-            gender_correct += g_correct
-            race_correct += r_correct
-            total += labels.size(0)
+            correct += (outputs['logits'].argmax(dim=1) == target_labels).sum().item()
+            total += target_labels.size(0)
 
             # Collect bias-related data
-            bias_data["gender_logits"].append(outputs['gender_logits'].detach().cpu())
-            bias_data["race_logits"].append(outputs['race_logits'].detach().cpu())
+            bias_data["logits"].append(outputs['logits'].detach().cpu())
             bias_data["features"].append(outputs['features'].detach().cpu())
-            bias_data["gender_labels"].append(gender_labels.detach().cpu())
-            bias_data["race_labels"].append(race_labels.detach().cpu())
+            bias_data["target_labels"].append(target_labels.detach().cpu())
+            bias_data["group_labels"].append(group_labels.detach().cpu())
         
-    # Compute bias metrics
-    # 1) Label: Gender / Group: Race
-    gender_race_results = compute_bias_metrics(
-        logits=bias_data["gender_logits"],
-        labels=bias_data["gender_labels"],
-        group_labels=bias_data["race_labels"],
-        features=bias_data["features"]
-    )
+    for k in bias_data:
+        bias_data[k] = torch.cat(bias_data[k], dim=0)
 
-        # 2) Label: Race / Group: Gender
-    race_gender_results = compute_bias_metrics(
-        logits=bias_data["race_logits"],
-        labels=bias_data["race_labels"],
-        group_labels=bias_data["gender_labels"],
+    # Compute bias metrics
+    bias_metrics = compute_bias_metrics(
+        logits=bias_data["logits"],
+        labels=bias_data["target_labels"],
+        group_labels=bias_data["group_labels"],
         features=bias_data["features"]
     )
     
     # Logging
     infer_log = {}
-    infer_log['gender_acc'] = gender_correct / total
-    infer_log['race_acc'] = race_correct / total
+    infer_log['infer_acc'] = correct / total
 
-    for k, v in gender_race_results.items():
-        infer_log[f"gender_race/{k}"] = v
-    for k, v in race_gender_results.items():
-        infer_log[f"race_gender/{k}"] = v
+    for k, v in bias_metrics.items():
+        infer_log[f"{args.bias_attribute}_bias/{k}"] = v
 
     # Wandb Logging
     if args.use_wandb:
-        run_id = " " # 지정 필요.
-        wandb.init(project='Intro-to-DL-N-TIDE', id=run_id, resume='must') 
+        wandb.init(project='Intro-to-DL-N-TIDE', id=" ", resume='must')  # id: 지정 필요.
 
         wandb.log({
             # Accuracy
-            'infer/gender_acc': infer_log['gender_acc'],
-            'infer/race_acc': infer_log['race_acc'],
-
+            f"infer/{target_attr}_acc": infer_log['infer_acc'],
             # Bias metrics
-            **{f"infer/{k}": v for k, v in infer_log.items() if k.startswith("gender_race/")},
-            **{f"infer/{k}": v for k, v in infer_log.items() if k.startswith("race_gender/")}
+            **{f"infer/{k}": v for k, v in infer_log.items() 
+            if k.startswith(f"{args.bias_attribute}_bias/")},
         })
 
 
