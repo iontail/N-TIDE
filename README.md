@@ -34,10 +34,10 @@ Sungkyunkwan University Applied Arificial Intelligence
    ```
 4. 데이터 설정 및 코드 실행:
    ```
-   python train.py                                                 # Default (FairFace, race 7-class)
-   python train.py --dataset_name "UTKFace"                        # UTKFace, race 5-class
-   python train.py --dataset_name "FairFace"                       # FairFace, race 7-class
-   python train.py --dataset_name "FairFace" --is_fairface_race_4  # FairFace, race 4-class (White, Black, Asian, Indian)
+   python train.py                                                 # Default (FairFace, Race 7-class)
+   python train.py --dataset_name "UTKFace"                        # UTKFace, Race 5-class
+   python train.py --dataset_name "FairFace"                       # FairFace, Race 7-class
+   python train.py --dataset_name "FairFace" --is_fairface_race_4  # FairFace, Race 4-class (White, Black, Asian, Indian)
    ```
 6. 가상환경 나가기:
     ```
