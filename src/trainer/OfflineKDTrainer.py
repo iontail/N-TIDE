@@ -80,7 +80,7 @@ class OfflineKDTrainer:
         for batch_idx, batch in enumerate(tqdm(self.train_loader, desc=f"Epoch {epoch+1}/{self.num_epochs}", leave=False)):
             images, labels = batch
             images, labels = images.to(self.device), labels.to(self.device)
-            target_labels = labels[:, 1] if self.target_attr == 'gender' else labels[:, 2]
+            target_labels = labels[:, 1] if self.target_attr == 'gender' else labels[:, 2] # Label: [Age, Gender, Race]
             
             # Compute Losses
             losses, outputs = self.compute_losses(images, target_labels)
@@ -131,8 +131,8 @@ class OfflineKDTrainer:
                 images, labels = batch
                 images, labels = images.to(self.device), labels.to(self.device)
 
-                target_labels = labels[:, 1] if self.target_attr == 'gender' else labels[:, 2]
-                group_labels = labels[:, 2] if self.target_attr == 'gender' else labels[:, 1]
+                target_labels = labels[:, 1] if self.target_attr == 'gender' else labels[:, 2] # Label: [Age, Gender, Race]
+                group_labels = labels[:, 2] if self.target_attr == 'gender' else labels[:, 1]  # Label: [Age, Gender, Race]
 
                 # Compute Losses 
                 losses, outputs = self.compute_losses(images, target_labels)

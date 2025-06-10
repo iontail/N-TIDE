@@ -36,11 +36,13 @@ def main(args):
         num_workers=num_workers, persistent_workers=True
     )
 
-    # Baseline Model or Student Model 
-    _, model = get_models(args, device) 
+    # Baseline or Student model (ResNet50)
+    if args.experiment_type == 'baseline' or args.experiment_type == 'offline_student':
+        _, model = get_models(args, device) 
     
-    # Teacher Model
-    # model, _ = get_models(args, device)
+    # Teacher model (CLIP)
+    elif args.experiment_type == 'offline_teacher':
+        model, _ = get_models(args, device)
 
     model.load_state_dict(torch.load(args.infer_ckpt_path)['model']) 
     model = model.to(device)
@@ -54,8 +56,8 @@ def main(args):
         for images, labels in tqdm(test_loader, desc='Inference'):
             images, labels = images.to(device), labels.to(device)
 
-            target_labels = labels[:, 1] if target_attr == 'gender' else labels[:, 2]
-            group_labels = labels[:, 2] if target_attr == 'gender' else labels[:, 1]
+            target_labels = labels[:, 1] if target_attr == 'gender' else labels[:, 2] # Label: [Age, Gender, Race]
+            group_labels = labels[:, 2] if target_attr == 'gender' else labels[:, 1]  # Label: [Age, Gender, Race]
 
             # Forward 
             outputs = model(images)
