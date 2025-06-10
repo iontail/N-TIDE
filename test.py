@@ -93,7 +93,7 @@ def main(args):
     # Wandb Logging
     if args.use_wandb:
         run_name = "N-TIDE (ours)"
-        wandb.init(project='Intro-to-DL-N-TIDE-Infer', name=run_name, config=args)
+        wandb.init(project='Intro-to-DL-N-TIDE', name=run_name, config=args)
 
         wandb.log({
             # Accuracy
