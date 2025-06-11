@@ -1,6 +1,5 @@
 <p align="center">
-  <h1 align="center"> N-TIDE:Debiasing Unimodal Vision Models via Neutral Text Inversion with CLIP
-</h1>
+  <h1 align="center">N-TIDE: Debiasing Unimodal Vision Models via Neutral Text Inversion with CLIP</h1>
   <p align="center">
     <a>Chanhee Lee</a>
     ·
@@ -8,11 +7,26 @@
     ·
     <a>Sarang Han</a>
   </p>
+  <p align="center">
+    <i>Sungkyunkwan University · Department of Applied Artificial Intelligence</i><br>
+    <i>2025-Spring Introduction to Deep Learning Course Term Project</i>
+  </p>
+</p>
 
+---
+
+## 📝 Abstract
+
+Mitigating bias in vision models is challenging, particularly when semantic attributes subtly influence predictions. While vision-language models like CLIP provide strong debiasing signals, they require text input at inference, limiting their use in image-only settings. We introduce **N-TIDE** (Neutral Text-Inversion for Distillation-based Equilibration), a two-stage framework that distills CLIP’s fairness guidance into a unimodal vision model. In the first stage, we propose a novel *neutral-text inversion* process, which regularizes the model by aligning a trainable neutral-text embedding with CLIP’s null-text embedding. This alignment captures semantic debiasing cues without requiring text at test time. In the second stage, we transfer these cues into an image-only encoder via cosine-based feature matching. We further interpret this process through the lens of deterministic diffusion, framing semantic alignment as a guided trajectory.
+
+Experiments on FairFace show that N-TIDE improves fairness metrics such as Equalized Odds and Representation Bias Difference with minimal accuracy loss. Though the fairness gains are moderate and the diffusion analogy remains conceptual, N-TIDE offers a practical path to integrating multimodal supervision into efficient vision-only models.
+
+
+---
 
 ## :sparkles: N-TIDE: Neutral Text-Inversion for Distillation-based Equilibration
-Sungkyunkwan University Applied Arificial Intelligence
 
+Sungkyunkwan University Applied Artificial Intelligence
 
 ## 1. 설치 
 
