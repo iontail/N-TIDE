@@ -25,13 +25,13 @@ def get_arguments():
     parser.add_argument('--feature_dim', type=int, default=512, help="Dimensionality of feature representation")
 
     # Train config
-    parser.add_argument('--experiment_type', type=str, choices=['baseline', 'offline_teacher', 'offline_student'], default='offline_teacher', help="Experimnet training type")
+    parser.add_argument('--experiment_type', type=str, choices=['baseline', 'offline_teacher', 'offline_student'], default='baseline', help="Experimnet training type")
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size for training")
     parser.add_argument('--num_epochs', type=int, default=15, help="Number of training epochs")
     parser.add_argument('--bias_attribute', type=str, choices=['gender', 'race'], default='race', help="Attribute to analyze for bias; the other attribute will be used as the classification target")
    
     # -- CLIP model (Teacher)
-    parser.add_argument('--t_optimizer', type=str, default='AdamW', help="Opti mizer for CLIP model")
+    parser.add_argument('--t_optimizer', type=str, default='AdamW', help="Optimizer for CLIP model")
     parser.add_argument('--t_scheduler', type=str, default='Cosine', help="Scheduler for CLIP model")
     parser.add_argument('--t_learning_rate', type=float, default=1e-4, help="Learning rate for CLIP model")
     parser.add_argument('--t_weight_decay', type=float, default=1e-5, help="Weight decay for CLIP model")
@@ -54,8 +54,8 @@ def get_arguments():
     # -- Etc
     parser.set_defaults(is_train=True)
     parser.add_argument('--is_test', dest='is_train', action='store_false', help="Run in evaluation (test) mode")
-    parser.set_defaults(use_wandb=True)
-    parser.add_argument('--no_wandb', dest='use_wandb', action='store_false', help="Disable Wandb logging")
+    parser.set_defaults(use_wandb=False)
+    parser.add_argument('--use_wandb', dest='use_wandb', action='store_true', help="Enable Wandb logging")
     parser.add_argument('--checkpoint_dir', type=str, default='./ckpt', help="Directory to save checkpoints")
     parser.add_argument('--teacher_ckpt_path', type=str, default=None, help="Path to teacher model checkpoint (required for training student)")
     parser.add_argument('--infer_ckpt_path', type=str, default=None, help="Path to model checkpoint for inference (required for test mode)")
