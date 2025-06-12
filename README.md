@@ -14,6 +14,9 @@
 </p>
 
 ---
+## 📄 [Paper](https://drive.google.com/.../view?usp=sharing)
+
+### 🖼️ Model Overview
 ![overview](./assets/N_TIDE.png)
 
 ---
