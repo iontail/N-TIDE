@@ -12,11 +12,11 @@ def get_models(args, device):
         if args.dataset_name == "UTKFace":
             num_classes = len(args.utkface_race_class)
 
-        elif args.dataset_name == "FairFace" and args.is_fairface_race_7:
-            num_classes = len(args.fairface_race_class)
-
-        elif args.dataset_name == "FairFace" and not args.is_fairface_race_7:
-            num_classes = 4
+        elif args.dataset_name == "FairFace":
+            if args.is_fairface_race_7:
+                num_classes = len(args.fairface_race_class)
+            else:
+                num_classes = 4  # ['East Asian', 'Indian', 'Black', 'White']
 
     clip = CLIP_Model(num_classes, args, device)
     resnet = ResNet_Model(num_classes, args)

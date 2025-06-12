@@ -181,7 +181,6 @@ class OfflineKDTrainer:
         
         checkpoint_path = os.path.join(self.checkpoint_dir, f"N-TIDE_{self.args.experiment_type}_E{epoch}.pt")
         torch.save(checkpoint, checkpoint_path)
-        return checkpoint_path  
 
     def train(self):
         for epoch in range(self.num_epochs):
@@ -203,5 +202,5 @@ class OfflineKDTrainer:
                 })
 
             if (epoch + 1) % 3 == 0 or (epoch + 1) == self.num_epochs:
-                checkpoint_path = self.save_checkpoint(epoch + 1)
+                self.save_checkpoint(epoch + 1)
                 

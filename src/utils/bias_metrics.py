@@ -45,7 +45,7 @@ def compute_bias_metrics(logits, labels, group_labels, features):
         demographic_parity_diff  = max(pr.values())  - min(pr.values())
 
         # Equalized Odds Difference: mean of TPR and FPR differences between groups
-        # Representation Bias Distance: max L2 distance between group-wise feature means                
+        # Representation Bias Distance: max cosine distance between group-wise feature means                
         equalized_odds_diff = 0.0
         representation_bias_dist = 0.0
         

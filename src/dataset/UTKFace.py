@@ -29,6 +29,10 @@ class UTKFaceDataset(torch.utils.data.Dataset):
         return image, label
 
 
+
+
+
+
 if __name__ == "__main__":
     from datasets import load_dataset, Dataset
     from sklearn.model_selection import train_test_split

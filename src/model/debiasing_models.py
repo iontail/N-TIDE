@@ -46,7 +46,7 @@ class CLIP_Model(nn.Module):
                 init_vector = token_embed[0, 5].clone()
             self.neutral_vector = nn.Parameter(init_vector.unsqueeze(0))
             
-        # Fusion MLP
+        # Fusion MLP (Image, Text features -> element-wise additing)
         in_features = self.model.visual.output_dim 
         self.fusion = nn.Sequential(
             nn.Linear(in_features, args.feature_dim),
@@ -92,7 +92,7 @@ class CLIP_Model(nn.Module):
 
         # A photo of a neutral -> A photo of a [Neutral vector]
         neutral_embed = self.neutral_token_embed.expand(B, -1, -1).clone() 
-        neutral_embed[:, 5, :] = self.neutral_vector.expand(B, -1)   
+        neutral_embed[:, 5, :] = self.neutral_vector.expand(B, -1) # "neutral" token, index =5 
 
         # Neutral-text Encode and Fuse
         neutral_enc = self._encode_neutral_text(neutral_embed)

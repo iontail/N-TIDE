@@ -27,8 +27,8 @@ def get_dataset(args):
         df[["age", "gender", "race"]] = df["__key__"].str.extract(r'(\d+)_(\d+)_(\d+)')
         df[["age", "gender", "race"]] = df[["age", "gender", "race"]].astype(int)
 
-        train_df, temp_df = train_test_split(df, test_size=1-train_ratio, stratify=df['race'], random_state=42)
-        val_df, test_df  = train_test_split(temp_df, test_size=test_size, stratify=temp_df['race'], random_state=42)
+        train_df, temp_df = train_test_split(df, test_size=1-train_ratio, stratify=df['race'], random_state=args.seed)
+        val_df, test_df  = train_test_split(temp_df, test_size=test_size, stratify=temp_df['race'], random_state=args.seed)
 
         train_data = Dataset.from_pandas(train_df.reset_index(drop=True))
         valid_data = Dataset.from_pandas(val_df.reset_index(drop=True))
@@ -58,7 +58,7 @@ def get_dataset(args):
             df = df[df["race"].isin([0, 1, 2, 3])]
             test_df = test_df[test_df["race"].isin([0, 1, 2, 3])]
 
-        train_df, val_df = train_test_split(df, test_size=valid_ratio, stratify=df["race"], random_state=42)
+        train_df, val_df = train_test_split(df, test_size=valid_ratio, stratify=df["race"], random_state=args.seed)
 
         train_data = Dataset.from_pandas(train_df.reset_index(drop=True)).cast_column("image", Image())
         valid_data = Dataset.from_pandas(val_df.reset_index(drop=True)).cast_column("image", Image())

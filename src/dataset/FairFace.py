@@ -23,6 +23,11 @@ class FairFaceDataset(torch.utils.data.Dataset):
         image = self.transform(image)
         label = torch.tensor([age, gender, race], dtype=torch.long)
         return image, label
+
+
+
+
+  
     
 if __name__ == "__main__":
     from datasets import load_dataset, Dataset, Image
