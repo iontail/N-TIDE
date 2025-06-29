@@ -61,3 +61,19 @@ Sungkyunkwan University Applied Artificial Intelligence
     ```
     conda deactivate
     ```
+
+---
+
+## 📚 Citation
+
+> This work was completed as part of the 2025-Spring *Introduction to Deep Learning* course term project at Sungkyunkwan University. Although the paper is not officially published, if you wish to cite it in your work, please use the following BibTeX entry:
+
+```bibtex
+@misc{lee2024ntide,
+  title     = {N-TIDE: Debiasing Unimodal Vision Models via Neutral Text Inversion with CLIP},
+  author    = {Chanhee Lee and Jinho Jang and Sarang Han},
+  note      = {Class project report, Sungkyunkwan University},
+  year      = {2025},
+  howpublished = {\url{https://github.com/iontail/N-TIDE}},
+  institution = {Sungkyunkwan University}
+}
