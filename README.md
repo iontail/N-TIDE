@@ -32,7 +32,6 @@ Experiments on FairFace show that N-TIDE improves fairness metrics such as Equal
 
 ## :sparkles: N-TIDE: Neutral Text-Inversion for Distillation-based Equilibration
 
-Sungkyunkwan University Applied Artificial Intelligence
 
 ## 1. 설치 
 
