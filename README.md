@@ -79,9 +79,9 @@ To install the project, follow the steps below:
 
 ```bibtex
 @misc{lee2024ntide,
-  title        = {N-TIDE: Debiasing Unimodal Vision Models via Neutral Text Inversion with CLIP},
-  author       = {Lee, Chanhee and Jang, Jinho and Han, Sarang},
-  year         = {2024},
-  howpublished = {https://github.com/iontail/N-TIDE},
-  url          = {https://github.com/iontail/N-TIDE}
+  title  = {N-TIDE: Debiasing Unimodal Vision Models via Neutral Text Inversion with CLIP},
+  author = {Lee, Chanhee and Jang, Jinho and Han, Sarang},
+  year   = {2024},
+  note   = {GitHub repository},
+  url    = {https://github.com/iontail/N-TIDE}
 }
