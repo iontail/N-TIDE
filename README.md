@@ -78,10 +78,10 @@ To install the project, follow the steps below:
 > This work was completed as part of the 2025-Spring *Introduction to Deep Learning* course term project at Sungkyunkwan University. Although the paper is not officially published, if you wish to cite it in your work, please use the following BibTeX entry:
 
 ```bibtex
-@misc{lee2024ntide,
+@misc{lee2025ntide,
   title  = {N-TIDE: Debiasing Unimodal Vision Models via Neutral Text Inversion with CLIP},
   author = {Lee, Chanhee and Jang, Jinho and Han, Sarang},
-  year   = {2024},
+  year   = {2025},
   note   = {GitHub repository},
   url    = {https://github.com/iontail/N-TIDE}
 }
