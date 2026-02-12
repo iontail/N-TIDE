@@ -28,40 +28,50 @@ Mitigating bias in vision models is challenging, particularly when semantic attr
 Experiments on FairFace show that N-TIDE improves fairness metrics such as Equalized Odds and Representation Bias Difference with minimal accuracy loss. Though the fairness gains are moderate and the diffusion analogy remains conceptual, N-TIDE offers a practical path to integrating multimodal supervision into efficient vision-only models.
 
 
+
 ---
 
 ## :sparkles: N-TIDE: Neutral Text-Inversion for Distillation-based Equilibration
 
+## 1. Installation
 
-## 1. 설치 
+To install the project, follow the steps below:
 
-프로젝트를 설치하려면 다음 단계를 따르세요:
+1. Clone the repository using the following command:
 
-1. 다음 명령어를 사용하여 프로젝트를 복제:
    ```
    git clone https://github.com/iontail/N-TIDE.git
    ```
-2. 복제된 프로젝트 폴더로 이동:
+
+2. Move to the cloned project directory:
+
    ```
    cd N-TIDE
    ```
-3. 새로운 가상환경 생성 및 필요한 패키지를 설치:
+
+3. Create a new virtual environment and install the required packages:
+
    ```
-   conda create -n N_TIDE python=3.10 # 해당 코드는 최초 1회만 실행
+   conda create -n N_TIDE python=3.10   # Run this command only once
    conda activate N_TIDE  
    pip install -r requirements.txt
    ```
-4. 데이터 설정 및 코드 실행:
+
+4. Set up the dataset and run the code:
+
    ```
    python train.py --dataset_name "FairFace"                       # FairFace, Race 7-class
    python train.py --dataset_name "FairFace" --is_fairface_race_4  # FairFace, Race 4-class (White, Black, Asian, Indian)
    ```
-6. 가상환경 나가기:
-    ```
-    conda deactivate
-    ```
+
+5. Deactivate the virtual environment:
+
+   ```
+   conda deactivate
+   ```
 
 ---
+
 
 ## 📚 Citation
 
@@ -69,10 +79,9 @@ Experiments on FairFace show that N-TIDE improves fairness metrics such as Equal
 
 ```bibtex
 @misc{lee2024ntide,
-  title     = {N-TIDE: Debiasing Unimodal Vision Models via Neutral Text Inversion with CLIP},
-  author    = {Chanhee Lee and Jinho Jang and Sarang Han},
-  note      = {Class project report, Sungkyunkwan University},
-  year      = {2025},
-  howpublished = {\url{https://github.com/iontail/N-TIDE}},
-  institution = {Sungkyunkwan University}
+  title        = {N-TIDE: Debiasing Unimodal Vision Models via Neutral Text Inversion with CLIP},
+  author       = {Lee, Chanhee and Jang, Jinho and Han, Sarang},
+  year         = {2024},
+  howpublished = {https://github.com/iontail/N-TIDE},
+  url          = {https://github.com/iontail/N-TIDE}
 }
